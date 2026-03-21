@@ -1,0 +1,201 @@
+{
+  "name": "Obsidian Context Reader",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ocr-trigger-001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate previous date and vault paths\nconst currentDate = $json.currentDate;\nconst vaultPath = $json.vaultPath || 'C:\\\\Users\\\\aryan\\\\OneDrive\\\\Documents\\\\Obsidian Vault';\nconst digestDir = vaultPath + '\\\\Email Digests';\n\n// Calculate previous date\nconst parts = currentDate.split('-');\nconst today = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));\nconst yesterday = new Date(today);\nyesterday.setDate(yesterday.getDate() - 1);\nconst previousDate = yesterday.toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    currentDate,\n    previousDate,\n    vaultPath,\n    digestDir,\n    actionItemsPath: digestDir + '\\\\action-items.md',\n    ongoingThreadsPath: digestDir + '\\\\ongoing-threads.md',\n    previousDigestPath: digestDir + '\\\\' + previousDate + '.md',\n    lastRunPath: digestDir + '\\\\.last-run.txt'\n  }\n}];"
+      },
+      "id": "ocr-calc-paths-002",
+      "name": "Calculate Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.lastRunPath }}",
+        "options": {}
+      },
+      "id": "ocr-read-lastrun-003",
+      "name": "Read Last Run",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [690, 150],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $('Calculate Paths').item.json.actionItemsPath }}",
+        "options": {}
+      },
+      "id": "ocr-read-actions-004",
+      "name": "Read Action Items",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [690, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $('Calculate Paths').item.json.ongoingThreadsPath }}",
+        "options": {}
+      },
+      "id": "ocr-read-threads-005",
+      "name": "Read Ongoing Threads",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [690, 450],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $('Calculate Paths').item.json.previousDigestPath }}",
+        "options": {}
+      },
+      "id": "ocr-read-prevdigest-006",
+      "name": "Read Previous Digest",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [690, 600],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "mergeByFields": {},
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "ocr-merge-007",
+      "name": "Merge All Context",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse all context files and build output\nconst calcPaths = $('Calculate Paths').first().json;\n\n// Parse last run timestamp\nlet lastRunTimestamp;\ntry {\n  const lastRunData = $('Read Last Run').first();\n  if (lastRunData && lastRunData.json && lastRunData.json.data) {\n    lastRunTimestamp = lastRunData.json.data.toString().trim();\n  } else if (lastRunData && lastRunData.binary) {\n    // Binary file read\n    const buf = Buffer.from(lastRunData.binary.data.data, 'base64');\n    lastRunTimestamp = buf.toString('utf8').trim();\n  }\n} catch (e) {}\n\n// Fallback: 18 hours ago\nif (!lastRunTimestamp || lastRunTimestamp.length < 10) {\n  const fallback = new Date(Date.now() - 18 * 60 * 60 * 1000);\n  lastRunTimestamp = fallback.toISOString();\n}\n\n// Parse action items\nlet previousActionItems = [];\ntry {\n  const actionData = $('Read Action Items').first();\n  let actionContent = '';\n  if (actionData && actionData.json && actionData.json.data) {\n    actionContent = actionData.json.data.toString();\n  }\n  \n  if (actionContent) {\n    const lines = actionContent.split('\\n');\n    let currentPriority = 'when-possible';\n    \n    for (const line of lines) {\n      if (line.includes('Must Do Today')) currentPriority = 'must-do-today';\n      else if (line.includes('This Week')) currentPriority = 'this-week';\n      else if (line.includes('When Possible')) currentPriority = 'when-possible';\n      else if (line.includes('Completed')) currentPriority = 'completed';\n      \n      const checkboxMatch = line.match(/^- \\[ \\] (.+?)(?:\\s*—\\s*Deadline:\\s*(.+?))?(?:\\s*—\\s*Source:\\s*(.+?))?(?:\\s*\\(added\\s*(.+?)\\))?$/);\n      if (checkboxMatch && currentPriority !== 'completed') {\n        previousActionItems.push({\n          task: checkboxMatch[1].trim(),\n          deadline: checkboxMatch[2] ? checkboxMatch[2].trim() : null,\n          source: checkboxMatch[3] ? checkboxMatch[3].trim() : null,\n          addedDate: checkboxMatch[4] ? checkboxMatch[4].trim() : calcPaths.previousDate,\n          priority: currentPriority\n        });\n      }\n    }\n  }\n} catch (e) {}\n\n// Parse previous digest summary and email count\nlet previousDigestSummary = '';\nlet previousEmailCount = 0;\ntry {\n  const digestData = $('Read Previous Digest').first();\n  let digestContent = '';\n  if (digestData && digestData.json && digestData.json.data) {\n    digestContent = digestData.json.data.toString();\n  }\n  \n  if (digestContent) {\n    // Extract YAML frontmatter email count\n    const emailCountMatch = digestContent.match(/total_emails:\\s*(\\d+)/);\n    if (emailCountMatch) previousEmailCount = parseInt(emailCountMatch[1]);\n    \n    // Extract executive summary section\n    const summaryMatch = digestContent.match(/## Executive Summary\\n\\n([\\s\\S]*?)\\n\\n---/);\n    if (summaryMatch) previousDigestSummary = summaryMatch[1].trim();\n  }\n} catch (e) {}\n\n// Parse ongoing threads\nlet ongoingThreads = [];\ntry {\n  const threadData = $('Read Ongoing Threads').first();\n  let threadContent = '';\n  if (threadData && threadData.json && threadData.json.data) {\n    threadContent = threadData.json.data.toString();\n  }\n  \n  if (threadContent) {\n    const threadBlocks = threadContent.split(/### /).filter(b => b.trim());\n    for (const block of threadBlocks) {\n      const lines = block.split('\\n').filter(l => l.trim());\n      if (lines.length > 0 && !lines[0].startsWith('Ongoing') && !lines[0].startsWith('Archived')) {\n        const subjectMatch = lines[0].match(/(.+?)\\s*(?:\\((.+?)\\))?$/);\n        if (subjectMatch) {\n          ongoingThreads.push({\n            subject: subjectMatch[1].trim(),\n            threadId: subjectMatch[2] || '',\n            participants: [],\n            lastActivity: '',\n            summary: lines.slice(1).join(' ').trim()\n          });\n        }\n      }\n    }\n  }\n} catch (e) {}\n\nreturn [{\n  json: {\n    lastRunTimestamp,\n    previousActionItems,\n    previousDigestSummary,\n    previousEmailCount,\n    ongoingThreads,\n    currentDate: calcPaths.currentDate,\n    previousDate: calcPaths.previousDate\n  }\n}];"
+      },
+      "id": "ocr-parse-all-008",
+      "name": "Parse All Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1130, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Calculate Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Paths": {
+      "main": [
+        [
+          {
+            "node": "Read Last Run",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Action Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Ongoing Threads",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Previous Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Last Run": {
+      "main": [
+        [
+          {
+            "node": "Merge All Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Action Items": {
+      "main": [
+        [
+          {
+            "node": "Merge All Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Ongoing Threads": {
+      "main": [
+        [
+          {
+            "node": "Merge All Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Previous Digest": {
+      "main": [
+        [
+          {
+            "node": "Merge All Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Context": {
+      "main": [
+        [
+          {
+            "node": "Parse All Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
+  },
+  "meta": {
+    "instanceId": "morning-briefing-obsidian-context-reader"
+  },
+  "tags": [
+    {
+      "name": "morning-briefing",
+      "id": "tag-morning-briefing"
+    }
+  ]
+}
