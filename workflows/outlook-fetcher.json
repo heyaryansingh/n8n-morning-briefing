@@ -1,0 +1,140 @@
+{
+  "name": "Outlook Fetcher",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c4e7a1b3-8f2d-4a6e-b9c1-3d5e7f8a2b4c",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 50,
+        "filters": {
+          "folderId": "inbox",
+          "receivedAfter": "={{ $json.lastRunTimestamp }}"
+        },
+        "options": {}
+      },
+      "id": "d5f8b2c4-9a3e-4b7f-c0d2-4e6f8a1b3c5d",
+      "name": "Microsoft Outlook",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "microsoftOutlookOAuth2",
+          "name": "Microsoft Outlook OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e6a9c3d5-0b4f-4c8a-d1e3-5f7a9b2c4d6e",
+      "name": "Has Emails?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst normalized = [];\n\nfor (const item of items) {\n  const email = item.json;\n  \n  if (email.from && email.from.emailAddress && \n      email.from.emailAddress.address === 'asing168@jh.edu') {\n    continue;\n  }\n  \n  let body = '';\n  if (email.body) {\n    if (email.body.contentType === 'html' || email.body.contentType === 'HTML') {\n      body = email.body.content.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n    } else {\n      body = email.body.content || '';\n    }\n  } else if (email.bodyPreview) {\n    body = email.bodyPreview;\n  }\n  \n  const sigPatterns = [/\\n--\\s*\\n[\\s\\S]*$/, /\\nSent from [\\s\\S]*$/, /\\n_{3,}[\\s\\S]*$/, /\\nGet Outlook[\\s\\S]*$/];\n  for (const pattern of sigPatterns) {\n    body = body.replace(pattern, '');\n  }\n  \n  body = body.replace(/\\nOn .* wrote:[\\s\\S]*$/m, '');\n  body = body.split('\\n').filter(line => !line.startsWith('>')).join('\\n');\n  \n  if (body.length > 2000) {\n    body = body.substring(0, 2000) + '... [truncated]';\n  }\n  \n  const attachmentNames = [];\n  if (email.hasAttachments && email.attachments) {\n    for (const att of email.attachments) {\n      if (att.name) attachmentNames.push(att.name);\n    }\n  }\n  if (attachmentNames.length > 0) {\n    body += '\\n[Attachments: ' + attachmentNames.join(', ') + ']';\n  }\n  \n  let bodyHtml = '';\n  if (email.body && (email.body.contentType === 'html' || email.body.contentType === 'HTML')) {\n    bodyHtml = email.body.content.substring(0, 500);\n  }\n  \n  normalized.push({\n    json: {\n      id: email.id || '',\n      source: 'outlook',\n      from: {\n        name: email.from?.emailAddress?.name || '',\n        email: email.from?.emailAddress?.address || ''\n      },\n      to: (email.toRecipients || []).map(r => ({\n        name: r.emailAddress?.name || '',\n        email: r.emailAddress?.address || ''\n      })),\n      subject: email.subject || '(no subject)',\n      body: body,\n      bodyHtml: bodyHtml,\n      date: email.receivedDateTime || '',\n      labels: email.categories || [],\n      isRead: email.isRead || false,\n      hasAttachments: attachmentNames.length > 0,\n      attachmentNames: attachmentNames,\n      threadId: email.conversationId || '',\n      messageCount: 1\n    }\n  });\n}\n\nreturn normalized.length > 0 ? normalized : [{ json: { emails: [], count: 0 } }];"
+      },
+      "id": "f7b0d4e6-1c5a-4d9b-e2f4-6a8b0c3d5e7f",
+      "name": "Normalize Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 200]
+    },
+    {
+      "parameters": {},
+      "id": "a8c1e5f7-2d6b-4e0c-f3a5-7b9c1d4e6f8a",
+      "name": "No Emails",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [760, 420]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Microsoft Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Microsoft Outlook": {
+      "main": [
+        [
+          {
+            "node": "Has Emails?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Emails?": {
+      "main": [
+        [
+          {
+            "node": "Normalize Emails",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York",
+    "saveManualExecutions": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "n8n-morning-briefing"
+  },
+  "tags": [
+    {
+      "name": "morning-briefing"
+    }
+  ]
+}
