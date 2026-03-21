@@ -1,0 +1,47 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Daily Briefing — {{dateFormatted}}"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "{{executiveSummary}}"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Action Items*\n{{actionItemsList}}"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Priority Emails*\n{{priorityEmailsList}}"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Full briefing in Obsidian | {{totalEmails}} emails ({{gmailCount}} Gmail, {{outlookCount}} Outlook)"
+        }
+      ]
+    }
+  ]
+}

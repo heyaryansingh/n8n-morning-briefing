@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["executiveSummary", "emailAnalyses", "consolidatedActionItems", "ongoingThreads", "staleItems", "inboxStats"],
+  "properties": {
+    "executiveSummary": {
+      "type": "string",
+      "description": "3-5 sentence overview of inbox state, urgency level, and headline items"
+    },
+    "emailAnalyses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["emailId", "summary", "importanceScore", "importanceReason", "category", "sentiment", "actionItems", "keyInfo"],
+        "properties": {
+          "emailId": { "type": "string" },
+          "summary": { "type": "string", "description": "2-3 sentence detailed summary" },
+          "importanceScore": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "importanceReason": { "type": "string" },
+          "category": { "type": "string", "enum": ["school", "personal", "newsletter", "transactional", "social", "financial", "career"] },
+          "sentiment": { "type": "string", "enum": ["positive", "neutral", "negative", "urgent"] },
+          "actionItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["task", "priority"],
+              "properties": {
+                "task": { "type": "string" },
+                "deadline": { "type": ["string", "null"] },
+                "effort": { "type": "string", "enum": ["quick", "medium", "deep-work"] },
+                "priority": { "type": "string", "enum": ["must-do-today", "this-week", "when-possible"] },
+                "context": { "type": "string" }
+              }
+            }
+          },
+          "calendarRelevance": {
+            "type": ["object", "null"],
+            "properties": {
+              "relatedEvent": { "type": "string" },
+              "connection": { "type": "string" }
+            }
+          },
+          "threadContext": { "type": ["string", "null"] },
+          "keyInfo": { "type": "array", "items": { "type": "string" } },
+          "suggestedResponse": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "consolidatedActionItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task": { "type": "string" },
+          "deadline": { "type": ["string", "null"] },
+          "effort": { "type": "string" },
+          "priority": { "type": "string" },
+          "context": { "type": "string" },
+          "sourceEmail": { "type": "string" }
+        }
+      }
+    },
+    "ongoingThreads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "threadId": { "type": "string" },
+          "subject": { "type": "string" },
+          "participants": { "type": "array", "items": { "type": "string" } },
+          "lastActivity": { "type": "string" },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+    "staleItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task": { "type": "string" },
+          "originalDate": { "type": "string" },
+          "daysStale": { "type": "integer" },
+          "recommendation": { "type": "string" }
+        }
+      }
+    },
+    "inboxStats": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer" },
+        "bySource": { "type": "object" },
+        "byCategory": { "type": "object" },
+        "comparisonToYesterday": { "type": "string" },
+        "unreadRemaining": { "type": "integer" }
+      }
+    }
+  }
+}
