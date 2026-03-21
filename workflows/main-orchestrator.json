@@ -1,0 +1,1037 @@
+{
+  "name": "Morning Briefing — Main Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "orch-schedule-001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Setup Date Context\nconst now = new Date();\n\n// Format current date as YYYY-MM-DD in Eastern time\nconst eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));\nconst year = eastern.getFullYear();\nconst month = String(eastern.getMonth() + 1).padStart(2, '0');\nconst day = String(eastern.getDate()).padStart(2, '0');\nconst currentDate = `${year}-${month}-${day}`;\n\n// Human-readable date\nconst months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\nconst dateFormatted = `${months[eastern.getMonth()]} ${eastern.getDate()}, ${year}`;\n\n// Day of week\nconst days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];\nconst currentDay = days[eastern.getDay()];\nconst isWeekend = eastern.getDay() === 0 || eastern.getDay() === 6;\n\n// Previous date\nconst prev = new Date(eastern);\nprev.setDate(prev.getDate() - 1);\nconst prevYear = prev.getFullYear();\nconst prevMonth = String(prev.getMonth() + 1).padStart(2, '0');\nconst prevDay = String(prev.getDate()).padStart(2, '0');\nconst previousDate = `${prevYear}-${prevMonth}-${prevDay}`;\n\n// Vault paths\nconst vaultPath = 'C:\\\\Users\\\\aryan\\\\OneDrive\\\\Documents\\\\Obsidian Vault';\nconst digestDir = vaultPath + '\\\\Email Digests';\n\nreturn [{\n  json: {\n    currentDate,\n    dateFormatted,\n    currentDay,\n    isWeekend,\n    previousDate,\n    vaultPath,\n    digestDir,\n    digestPath: digestDir + '\\\\' + currentDate + '.md',\n    actionItemsPath: digestDir + '\\\\action-items.md',\n    ongoingThreadsPath: digestDir + '\\\\ongoing-threads.md',\n    lastRunPath: digestDir + '\\\\.last-run.txt'\n  }\n}];"
+      },
+      "id": "orch-setup-002",
+      "name": "Setup Date Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.digestPath }}",
+        "options": {}
+      },
+      "id": "orch-check-dedup-003",
+      "name": "Check Dedup",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [440, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "dedup-check",
+              "leftValue": "={{ $json.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "orch-if-dedup-004",
+      "name": "Already Ran Today?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $env.N8N_OBSIDIAN_CONTEXT_WORKFLOW_ID || 'obsidian-context-reader' }}",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "orch-fetch-context-005",
+      "name": "Fetch Obsidian Context",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [880, 460]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $env.N8N_GMAIL_FETCHER_WORKFLOW_ID || 'gmail-fetcher' }}",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "orch-fetch-gmail-006",
+      "name": "Fetch Gmail",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1100, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $env.N8N_OUTLOOK_FETCHER_WORKFLOW_ID || 'outlook-fetcher' }}",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "orch-fetch-outlook-007",
+      "name": "Fetch Outlook",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1100, 500],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $env.N8N_CALENDAR_FETCHER_WORKFLOW_ID || 'calendar-fetcher' }}",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "orch-fetch-calendar-008",
+      "name": "Fetch Calendar",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1100, 700],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge All Data from parallel sub-workflow calls\n// Gmail results come from 'Fetch Gmail' node\n// Outlook results come from 'Fetch Outlook' node\n// Calendar results come from 'Fetch Calendar' node\n// Context comes from 'Fetch Obsidian Context' node\n\nlet gmailEmails = [];\nlet outlookEmails = [];\nlet calendarEvents = [];\nlet obsidianContext = {};\n\n// Get Gmail emails\ntry {\n  const gmailData = $('Fetch Gmail').all();\n  if (gmailData && gmailData.length > 0) {\n    const firstItem = gmailData[0].json;\n    if (firstItem.emails && Array.isArray(firstItem.emails)) {\n      gmailEmails = firstItem.emails;\n    } else if (Array.isArray(firstItem)) {\n      gmailEmails = firstItem;\n    }\n  }\n} catch (e) {\n  // Gmail fetch failed — continue with empty\n}\n\n// Get Outlook emails\ntry {\n  const outlookData = $('Fetch Outlook').all();\n  if (outlookData && outlookData.length > 0) {\n    const firstItem = outlookData[0].json;\n    if (firstItem.emails && Array.isArray(firstItem.emails)) {\n      outlookEmails = firstItem.emails;\n    } else if (Array.isArray(firstItem)) {\n      outlookEmails = firstItem;\n    }\n  }\n} catch (e) {\n  // Outlook fetch failed — continue with empty\n}\n\n// Get Calendar events\ntry {\n  const calData = $('Fetch Calendar').all();\n  if (calData && calData.length > 0) {\n    const firstItem = calData[0].json;\n    if (firstItem.events && Array.isArray(firstItem.events)) {\n      calendarEvents = firstItem.events;\n    } else if (Array.isArray(firstItem)) {\n      calendarEvents = firstItem;\n    }\n  }\n} catch (e) {\n  // Calendar fetch failed — continue with empty\n}\n\n// Get Obsidian context\ntry {\n  const contextData = $('Fetch Obsidian Context').all();\n  if (contextData && contextData.length > 0) {\n    obsidianContext = contextData[0].json || {};\n  }\n} catch (e) {\n  // Context reader failed — continue without context\n}\n\n// Merge all emails into a single array\nconst allEmails = [...gmailEmails, ...outlookEmails];\n\n// Get date context from Setup Date Context node\nconst dateContext = $('Setup Date Context').first().json;\n\nreturn [{\n  json: {\n    emails: allEmails,\n    gmailCount: gmailEmails.length,\n    outlookCount: outlookEmails.length,\n    totalEmails: allEmails.length,\n    calendarEvents,\n    previousActionItems: obsidianContext.actionItems || '',\n    previousDigestSummary: obsidianContext.previousDigestSummary || '',\n    ongoingThreads: obsidianContext.ongoingThreads || '',\n    lastRunTimestamp: obsidianContext.lastRunTimestamp || '',\n    currentDate: dateContext.currentDate,\n    dateFormatted: dateContext.dateFormatted,\n    currentDay: dateContext.currentDay,\n    isWeekend: dateContext.isWeekend,\n    previousDate: dateContext.previousDate,\n    vaultPath: dateContext.vaultPath,\n    digestDir: dateContext.digestDir,\n    digestPath: dateContext.digestPath,\n    actionItemsPath: dateContext.actionItemsPath,\n    ongoingThreadsPath: dateContext.ongoingThreadsPath,\n    lastRunPath: dateContext.lastRunPath\n  }\n}];"
+      },
+      "id": "orch-merge-009",
+      "name": "Merge All Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "has-emails-check",
+              "leftValue": "={{ $json.totalEmails }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "orch-if-emails-010",
+      "name": "Has Any Emails?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1540, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare AI Payload — build Claude API request body\nconst data = $json;\n\nconst systemPrompt = `You are a senior executive assistant and intelligence analyst for Aryan Singh, a student at Johns Hopkins University. Your job is to analyze his email inbox and produce a comprehensive daily intelligence briefing.\n\n## Your Analysis Tasks\n\nFor each email, produce:\n1. A detailed 2-3 sentence summary (not just the subject line — what does this email actually say and why does it matter?)\n2. An importance score from 1-10 using this weighting:\n   - Content urgency (50%): deadlines, time-sensitive requests, consequences of inaction\n   - Sender significance (25%): professors, employers, family > newsletters, automated notifications\n   - Category weight (25%): school/career > personal > social > newsletters\n3. Specific, actionable tasks extracted from the email (not vague — \"Reply to Prof. Smith with revised proposal by Friday 5pm\" not \"follow up\")\n4. Calendar cross-references: if any email relates to today's or tomorrow's calendar events, explain the connection and what to prepare\n5. Thread context: if this is part of an ongoing conversation, summarize the thread history\n6. Key information: extract specific facts, dates, dollar amounts, links, names worth noting\n7. Suggested response: if a reply is needed, provide talking points\n\n## Importance Scoring Guide\n- 9-10: Immediate action required, serious consequences if missed (deadline today, urgent from professor/employer)\n- 7-8: Important, should handle today (upcoming deadline, significant request, career opportunity)\n- 5-6: Moderate, handle this week (informational from important sender, non-urgent request)\n- 3-4: Low priority (newsletters with useful content, FYI notifications)\n- 1-2: Noise (marketing, social media notifications, spam that got through)\n\n## Weekend Mode\nWhen the weekend flag is true:\n- Raise the threshold for \"Priority Emails\" to 8+ (vs 7+ on weekdays)\n- Suppress newsletters and social notifications from the executive summary\n- Still track all action items regardless\n\n## Continuity\nYou will receive:\n- Previous day's unresolved action items — flag which are still relevant, which may be resolved by new emails\n- Previous day's digest summary — reference it for comparison stats\n- Ongoing thread summaries — note any threads that progressed overnight\n\n## Output Format\nRespond with valid JSON matching this schema. No markdown wrapping, no explanation — just the JSON object.\n\n{\n  \"executiveSummary\": \"3-5 sentence overview of inbox state\",\n  \"emailAnalyses\": [\n    {\n      \"emailId\": \"string\",\n      \"summary\": \"2-3 sentence detailed summary\",\n      \"importanceScore\": 1-10,\n      \"importanceReason\": \"specific reason\",\n      \"category\": \"school|personal|newsletter|transactional|social|financial|career\",\n      \"sentiment\": \"positive|neutral|negative|urgent\",\n      \"actionItems\": [\n        {\n          \"task\": \"specific actionable task\",\n          \"deadline\": \"ISO datetime or null\",\n          \"effort\": \"quick|medium|deep-work\",\n          \"priority\": \"must-do-today|this-week|when-possible\",\n          \"context\": \"why this matters\"\n        }\n      ],\n      \"calendarRelevance\": { \"relatedEvent\": \"string\", \"connection\": \"string\" } or null,\n      \"threadContext\": \"string or null\",\n      \"keyInfo\": [\"extracted facts\", \"dates\", \"links\"],\n      \"suggestedResponse\": \"string or null\"\n    }\n  ],\n  \"consolidatedActionItems\": [\n    {\n      \"task\": \"string\",\n      \"deadline\": \"string or null\",\n      \"effort\": \"quick|medium|deep-work\",\n      \"priority\": \"must-do-today|this-week|when-possible\",\n      \"context\": \"string\",\n      \"sourceEmail\": \"subject line\"\n    }\n  ],\n  \"ongoingThreads\": [\n    {\n      \"threadId\": \"string\",\n      \"subject\": \"string\",\n      \"participants\": [\"string\"],\n      \"lastActivity\": \"ISO date\",\n      \"summary\": \"string\"\n    }\n  ],\n  \"staleItems\": [\n    {\n      \"task\": \"string\",\n      \"originalDate\": \"YYYY-MM-DD\",\n      \"daysStale\": 3,\n      \"recommendation\": \"string\"\n    }\n  ],\n  \"inboxStats\": {\n    \"total\": 0,\n    \"bySource\": { \"gmail\": 0, \"outlook\": 0 },\n    \"byCategory\": {},\n    \"comparisonToYesterday\": \"string\",\n    \"unreadRemaining\": 0\n  }\n}`;\n\nconst userMessage = JSON.stringify({\n  emails: data.emails,\n  calendarEvents: data.calendarEvents,\n  previousActionItems: data.previousActionItems,\n  previousDigestSummary: data.previousDigestSummary,\n  currentDate: data.currentDate,\n  currentDay: data.currentDay,\n  isWeekend: data.isWeekend\n});\n\nconst model = process.env.N8N_CLAUDE_MODEL || 'claude-sonnet-4-6-20250514';\n\nconst requestBody = {\n  model,\n  max_tokens: 4096,\n  system: systemPrompt,\n  messages: [\n    {\n      role: 'user',\n      content: userMessage\n    }\n  ]\n};\n\nreturn [{\n  json: {\n    requestBody,\n    ...data\n  }\n}];"
+      },
+      "id": "orch-prepare-ai-011",
+      "name": "Prepare AI Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "orch-claude-api-012",
+      "name": "Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anthropic-api-key",
+          "name": "Anthropic API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "claude-success-check",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "orch-if-claude-013",
+      "name": "Claude Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2200, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare OpenAI Fallback — reformat the payload for OpenAI API\nconst data = $('Prepare AI Payload').first().json;\nconst claudeBody = data.requestBody;\n\nconst openAIBody = {\n  model: process.env.N8N_OPENAI_MODEL || 'gpt-4o',\n  max_tokens: 4096,\n  messages: [\n    {\n      role: 'system',\n      content: claudeBody.system\n    },\n    {\n      role: 'user',\n      content: claudeBody.messages[0].content\n    }\n  ],\n  temperature: 0.3\n};\n\nreturn [{\n  json: {\n    openAIBody,\n    currentDate: data.currentDate,\n    dateFormatted: data.dateFormatted,\n    currentDay: data.currentDay,\n    isWeekend: data.isWeekend,\n    previousDate: data.previousDate,\n    vaultPath: data.vaultPath,\n    digestDir: data.digestDir,\n    digestPath: data.digestPath,\n    actionItemsPath: data.actionItemsPath,\n    ongoingThreadsPath: data.ongoingThreadsPath,\n    lastRunPath: data.lastRunPath,\n    totalEmails: data.totalEmails,\n    gmailCount: data.gmailCount,\n    outlookCount: data.outlookCount,\n    emails: data.emails,\n    calendarEvents: data.calendarEvents,\n    previousActionItems: data.previousActionItems,\n    aiProvider: 'openai'\n  }\n}];"
+      },
+      "id": "orch-prep-openai-014",
+      "name": "Prepare OpenAI Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.openAIBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "orch-openai-api-015",
+      "name": "OpenAI API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "openai-api-key",
+          "name": "OpenAI API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "openai-success-check",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "orch-if-openai-016",
+      "name": "OpenAI Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2860, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Gemini Fallback — reformat the payload for Google Gemini API\nconst data = $('Prepare AI Payload').first().json;\nconst claudeBody = data.requestBody;\n\nconst geminiModel = process.env.N8N_GEMINI_MODEL || 'gemini-2.0-flash';\nconst geminiApiKey = process.env.N8N_GEMINI_API_KEY || '';\n\nconst geminiBody = {\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        {\n          text: claudeBody.system + '\\n\\n---\\n\\n' + claudeBody.messages[0].content\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    maxOutputTokens: 4096,\n    temperature: 0.3\n  }\n};\n\nreturn [{\n  json: {\n    geminiBody,\n    geminiUrl: `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`,\n    currentDate: data.currentDate,\n    dateFormatted: data.dateFormatted,\n    currentDay: data.currentDay,\n    isWeekend: data.isWeekend,\n    previousDate: data.previousDate,\n    vaultPath: data.vaultPath,\n    digestDir: data.digestDir,\n    digestPath: data.digestPath,\n    actionItemsPath: data.actionItemsPath,\n    ongoingThreadsPath: data.ongoingThreadsPath,\n    lastRunPath: data.lastRunPath,\n    totalEmails: data.totalEmails,\n    gmailCount: data.gmailCount,\n    outlookCount: data.outlookCount,\n    emails: data.emails,\n    calendarEvents: data.calendarEvents,\n    previousActionItems: data.previousActionItems,\n    aiProvider: 'gemini'\n  }\n}];"
+      },
+      "id": "orch-prep-gemini-017",
+      "name": "Prepare Gemini Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3080, 800]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.geminiUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.geminiBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "orch-gemini-api-018",
+      "name": "Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3300, 800],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "gemini-success-check",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "orch-if-gemini-019",
+      "name": "Gemini Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3520, 800]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $env.N8N_SLACK_CHANNEL || '#morning-briefing' }}",
+        "text": "All AI providers failed for the morning briefing. Manual review required.",
+        "otherOptions": {
+          "includeLinkToWorkflow": true
+        }
+      },
+      "id": "orch-slack-failure-020",
+      "name": "Send Failure Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [3740, 1000],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "slack-cred-id",
+          "name": "Slack OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI Response — handles Claude, OpenAI, and Gemini response formats\n// This node receives output from whichever AI provider succeeded\n\nlet rawText = '';\nlet aiProvider = 'unknown';\n\n// Try to determine which provider responded\n// Check if we have a Claude response (from Claude API node directly via true branch)\ntry {\n  const claudeResponse = $('Claude API').first().json;\n  if (claudeResponse && claudeResponse.statusCode === 200) {\n    // Claude format: { body: { content: [{ type: 'text', text: '...' }] } }\n    const body = typeof claudeResponse.body === 'string' ? JSON.parse(claudeResponse.body) : claudeResponse.body;\n    if (body && body.content && body.content[0]) {\n      rawText = body.content[0].text;\n      aiProvider = 'claude';\n    }\n  }\n} catch (e) { /* not Claude */ }\n\n// Check OpenAI response\nif (!rawText) {\n  try {\n    const openaiResponse = $('OpenAI API').first().json;\n    if (openaiResponse && openaiResponse.statusCode === 200) {\n      const body = typeof openaiResponse.body === 'string' ? JSON.parse(openaiResponse.body) : openaiResponse.body;\n      if (body && body.choices && body.choices[0]) {\n        rawText = body.choices[0].message.content;\n        aiProvider = 'openai';\n      }\n    }\n  } catch (e) { /* not OpenAI */ }\n}\n\n// Check Gemini response\nif (!rawText) {\n  try {\n    const geminiResponse = $('Gemini API').first().json;\n    if (geminiResponse && geminiResponse.statusCode === 200) {\n      const body = typeof geminiResponse.body === 'string' ? JSON.parse(geminiResponse.body) : geminiResponse.body;\n      if (body && body.candidates && body.candidates[0]) {\n        rawText = body.candidates[0].content.parts[0].text;\n        aiProvider = 'gemini';\n      }\n    }\n  } catch (e) { /* not Gemini */ }\n}\n\n// Clean up the response — strip markdown code fences if present\nrawText = rawText.trim();\nif (rawText.startsWith('```json')) {\n  rawText = rawText.slice(7);\n}\nif (rawText.startsWith('```')) {\n  rawText = rawText.slice(3);\n}\nif (rawText.endsWith('```')) {\n  rawText = rawText.slice(0, -3);\n}\nrawText = rawText.trim();\n\n// Parse JSON\nlet analysis;\ntry {\n  analysis = JSON.parse(rawText);\n} catch (e) {\n  // Try to extract JSON from the response\n  const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    analysis = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('Failed to parse AI response as JSON: ' + rawText.substring(0, 200));\n  }\n}\n\n// Carry forward all context data\nconst mergedData = $('Merge All Data').first().json;\n\nreturn [{\n  json: {\n    analysis,\n    aiProvider,\n    currentDate: mergedData.currentDate,\n    dateFormatted: mergedData.dateFormatted,\n    currentDay: mergedData.currentDay,\n    isWeekend: mergedData.isWeekend,\n    previousDate: mergedData.previousDate,\n    vaultPath: mergedData.vaultPath,\n    digestDir: mergedData.digestDir,\n    digestPath: mergedData.digestPath,\n    actionItemsPath: mergedData.actionItemsPath,\n    ongoingThreadsPath: mergedData.ongoingThreadsPath,\n    lastRunPath: mergedData.lastRunPath,\n    totalEmails: mergedData.totalEmails,\n    gmailCount: mergedData.gmailCount,\n    outlookCount: mergedData.outlookCount,\n    emails: mergedData.emails,\n    calendarEvents: mergedData.calendarEvents,\n    previousActionItems: mergedData.previousActionItems\n  }\n}];"
+      },
+      "id": "orch-parse-ai-021",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2800, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Obsidian Digest — full markdown with YAML frontmatter and all 7 sections\nconst data = $json;\nconst a = data.analysis;\nconst threshold = data.isWeekend ? 8 : 7;\n\n// Determine urgency level\nconst urgentCount = (a.consolidatedActionItems || []).filter(i => i.priority === 'must-do-today').length;\nlet urgencyLevel = 'low';\nif (urgentCount >= 3) urgencyLevel = 'high';\nelse if (urgentCount >= 1) urgencyLevel = 'medium';\n\n// YAML frontmatter\nlet md = `---\\ndate: \"${data.currentDate}\"\\ntotal_emails: ${data.totalEmails}\\nurgency_level: \"${urgencyLevel}\"\\ntags: [email-digest, \"${data.currentDate}\"]\\n---\\n\\n`;\n\n// Title\nmd += `# Daily Intelligence Briefing — ${data.dateFormatted}\\n\\n`;\nmd += `> Previous: [[${data.previousDate}]]\\n\\n`;\n\n// Section 1: Executive Summary\nmd += `## Executive Summary\\n\\n${a.executiveSummary || 'No summary available.'}\\n\\n---\\n\\n`;\n\n// Section 2: Calendar + Email Cross-Reference\nmd += `## Today's Calendar + Email Cross-Reference\\n\\n`;\nif (data.calendarEvents && data.calendarEvents.length > 0) {\n  data.calendarEvents.forEach(evt => {\n    const startTime = evt.startTime || evt.start || '';\n    const endTime = evt.endTime || evt.end || '';\n    md += `- **${startTime} — ${endTime}**: ${evt.summary || evt.title || 'Untitled'}\\n`;\n    if (evt.location) md += `  - Location: ${evt.location}\\n`;\n  });\n  md += '\\n';\n  // Cross-references from email analyses\n  const crossRefs = (a.emailAnalyses || []).filter(e => e.calendarRelevance);\n  if (crossRefs.length > 0) {\n    md += '**Email-Calendar Connections:**\\n';\n    crossRefs.forEach(e => {\n      md += `- ${e.calendarRelevance.relatedEvent}: ${e.calendarRelevance.connection}\\n`;\n    });\n  }\n} else {\n  md += 'No calendar events today.\\n';\n}\nmd += '\\n---\\n\\n';\n\n// Section 3: Action Items Dashboard\nmd += `## Action Items Dashboard\\n\\n`;\nmd += `| Priority | Action | Source | Deadline | Effort | Context |\\n`;\nmd += `|----------|--------|--------|----------|--------|---------|\\n`;\nconst actionItems = a.consolidatedActionItems || [];\nif (actionItems.length > 0) {\n  actionItems.forEach(item => {\n    const priority = item.priority || 'when-possible';\n    const task = (item.task || '').replace(/\\|/g, '/');\n    const source = (item.sourceEmail || '').replace(/\\|/g, '/');\n    const deadline = item.deadline || '—';\n    const effort = item.effort || '—';\n    const context = (item.context || '').replace(/\\|/g, '/').substring(0, 60);\n    md += `| ${priority} | ${task} | ${source} | ${deadline} | ${effort} | ${context} |\\n`;\n  });\n} else {\n  md += '| — | No action items today | — | — | — | — |\\n';\n}\nmd += '\\n---\\n\\n';\n\n// Section 4: Priority Emails\nmd += `## Priority Emails\\n\\n`;\nconst priorityEmails = (a.emailAnalyses || []).filter(e => e.importanceScore >= threshold);\nif (priorityEmails.length > 0) {\n  priorityEmails.sort((a, b) => b.importanceScore - a.importanceScore);\n  priorityEmails.forEach(e => {\n    // Find original email for metadata\n    const original = (data.emails || []).find(orig => orig.id === e.emailId) || {};\n    md += `### ${original.subject || e.emailId} (Score: ${e.importanceScore}/10)\\n\\n`;\n    md += `**From:** ${original.from ? (original.from.name || original.from.email) : 'Unknown'} | `;\n    md += `**Source:** ${original.source || 'unknown'} | `;\n    md += `**Category:** ${e.category} | **Sentiment:** ${e.sentiment}\\n\\n`;\n    md += `${e.summary}\\n\\n`;\n    if (e.importanceReason) md += `**Why it matters:** ${e.importanceReason}\\n\\n`;\n    if (e.threadContext) md += `**Thread context:** ${e.threadContext}\\n\\n`;\n    if (e.keyInfo && e.keyInfo.length > 0) {\n      md += `**Key info:** ${e.keyInfo.join(' | ')}\\n\\n`;\n    }\n    if (e.suggestedResponse) md += `**Suggested response:** ${e.suggestedResponse}\\n\\n`;\n  });\n} else {\n  md += 'No emails above the priority threshold today.\\n\\n';\n}\nmd += '---\\n\\n';\n\n// Section 5: Ongoing Threads & Continuity\nmd += `## Ongoing Threads & Continuity\\n\\n`;\nconst threads = a.ongoingThreads || [];\nif (threads.length > 0) {\n  threads.forEach(t => {\n    md += `### ${t.subject}\\n`;\n    md += `- **Participants:** ${(t.participants || []).join(', ')}\\n`;\n    md += `- **Last activity:** ${t.lastActivity || 'Unknown'}\\n`;\n    md += `- ${t.summary}\\n\\n`;\n  });\n} else {\n  md += 'No ongoing threads to track.\\n\\n';\n}\nconst stale = a.staleItems || [];\nif (stale.length > 0) {\n  md += '**Stale Items (3+ days):**\\n';\n  stale.forEach(s => {\n    md += `- ${s.task} (${s.daysStale} days) — ${s.recommendation}\\n`;\n  });\n  md += '\\n';\n}\nmd += '---\\n\\n';\n\n// Section 6: FYI / Read Later\nmd += `## FYI / Read Later\\n\\n`;\nconst fyiEmails = (a.emailAnalyses || []).filter(e => e.importanceScore < threshold);\nif (fyiEmails.length > 0) {\n  // Group by category\n  const groups = {};\n  fyiEmails.forEach(e => {\n    const cat = e.category || 'other';\n    if (!groups[cat]) groups[cat] = [];\n    groups[cat].push(e);\n  });\n  Object.entries(groups).forEach(([cat, emails]) => {\n    md += `**${cat.charAt(0).toUpperCase() + cat.slice(1)}:**\\n`;\n    emails.forEach(e => {\n      const original = (data.emails || []).find(orig => orig.id === e.emailId) || {};\n      md += `- ${original.subject || e.emailId}: ${e.summary.split('.')[0]}.\\n`;\n    });\n    md += '\\n';\n  });\n} else {\n  md += 'Nothing in the FYI bucket today.\\n\\n';\n}\nmd += '---\\n\\n';\n\n// Section 7: Inbox Stats\nmd += `## Inbox Stats\\n\\n`;\nconst stats = a.inboxStats || {};\nmd += `- **Total emails:** ${stats.total || data.totalEmails}\\n`;\nmd += `- **By source:** Gmail: ${data.gmailCount}, Outlook: ${data.outlookCount}\\n`;\nif (stats.byCategory) {\n  const catStr = Object.entries(stats.byCategory).map(([k, v]) => `${k}: ${v}`).join(', ');\n  md += `- **By category:** ${catStr}\\n`;\n}\nif (stats.comparisonToYesterday) md += `- **vs. yesterday:** ${stats.comparisonToYesterday}\\n`;\nif (stats.unreadRemaining !== undefined) md += `- **Unread remaining:** ${stats.unreadRemaining}\\n`;\nmd += `- **AI provider used:** ${data.aiProvider}\\n`;\n\nreturn [{\n  json: {\n    ...data,\n    obsidianDigest: md,\n    urgencyLevel,\n    urgentCount\n  }\n}];"
+      },
+      "id": "orch-build-obsidian-022",
+      "name": "Build Obsidian Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3020, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Slack Message — Block Kit JSON with emoji indicators\nconst data = $json;\nconst a = data.analysis;\nconst threshold = data.isWeekend ? 8 : 7;\n\n// Build action items list with emoji indicators\nconst actionItems = a.consolidatedActionItems || [];\nlet actionItemsText = '';\nif (actionItems.length > 0) {\n  actionItems.forEach(item => {\n    let emoji = '\\u{1F7E2}'; // green circle\n    if (item.priority === 'must-do-today') emoji = '\\u{1F534}'; // red circle\n    else if (item.priority === 'this-week') emoji = '\\u{1F7E1}'; // yellow circle\n    const deadline = item.deadline ? ` (by ${item.deadline})` : '';\n    actionItemsText += `${emoji} ${item.task}${deadline}\\n`;\n  });\n} else {\n  actionItemsText = 'No action items today.';\n}\n\n// Build priority emails list (top 5)\nconst priorityEmails = (a.emailAnalyses || [])\n  .filter(e => e.importanceScore >= threshold)\n  .sort((a, b) => b.importanceScore - a.importanceScore)\n  .slice(0, 5);\n\nlet priorityEmailsText = '';\nif (priorityEmails.length > 0) {\n  priorityEmails.forEach(e => {\n    const original = (data.emails || []).find(orig => orig.id === e.emailId) || {};\n    const score = e.importanceScore;\n    const subject = original.subject || e.emailId;\n    const from = original.from ? (original.from.name || original.from.email) : 'Unknown';\n    priorityEmailsText += `*[${score}/10]* ${subject}\\n  _From: ${from}_ — ${e.summary.split('.')[0]}.\\n\\n`;\n  });\n} else {\n  priorityEmailsText = 'No priority emails today.';\n}\n\n// Build Slack Block Kit message\nconst blocks = [\n  {\n    type: 'header',\n    text: {\n      type: 'plain_text',\n      text: `Daily Briefing \\u2014 ${data.dateFormatted}`,\n      emoji: true\n    }\n  },\n  {\n    type: 'section',\n    text: {\n      type: 'mrkdwn',\n      text: a.executiveSummary || 'No summary available.'\n    }\n  },\n  {\n    type: 'divider'\n  },\n  {\n    type: 'section',\n    text: {\n      type: 'mrkdwn',\n      text: `*Action Items*\\n${actionItemsText}`\n    }\n  },\n  {\n    type: 'divider'\n  },\n  {\n    type: 'section',\n    text: {\n      type: 'mrkdwn',\n      text: `*Priority Emails*\\n${priorityEmailsText}`\n    }\n  },\n  {\n    type: 'context',\n    elements: [\n      {\n        type: 'mrkdwn',\n        text: `Full briefing in Obsidian | ${data.totalEmails} emails (${data.gmailCount} Gmail, ${data.outlookCount} Outlook) | AI: ${data.aiProvider}`\n      }\n    ]\n  }\n];\n\nreturn [{\n  json: {\n    ...data,\n    slackBlocks: blocks,\n    slackBlocksJson: JSON.stringify(blocks)\n  }\n}];"
+      },
+      "id": "orch-build-slack-023",
+      "name": "Build Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3240, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Email HTML — full HTML email with inline CSS and all 7 sections\nconst data = $json;\nconst a = data.analysis;\nconst threshold = data.isWeekend ? 8 : 7;\n\nfunction escapeHtml(str) {\n  if (!str) return '';\n  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n}\n\nfunction priorityClass(priority) {\n  if (priority === 'must-do-today') return 'priority-must';\n  if (priority === 'this-week') return 'priority-week';\n  return 'priority-later';\n}\n\n// Calendar section\nlet calendarHtml = '';\nif (data.calendarEvents && data.calendarEvents.length > 0) {\n  calendarHtml = '<ul>';\n  data.calendarEvents.forEach(evt => {\n    const startTime = evt.startTime || evt.start || '';\n    const endTime = evt.endTime || evt.end || '';\n    calendarHtml += `<li><strong>${escapeHtml(startTime)} — ${escapeHtml(endTime)}</strong>: ${escapeHtml(evt.summary || evt.title || 'Untitled')}`;\n    if (evt.location) calendarHtml += ` (${escapeHtml(evt.location)})`;\n    calendarHtml += '</li>';\n  });\n  calendarHtml += '</ul>';\n  // Cross-references\n  const crossRefs = (a.emailAnalyses || []).filter(e => e.calendarRelevance);\n  if (crossRefs.length > 0) {\n    calendarHtml += '<p><strong>Email-Calendar Connections:</strong></p><ul>';\n    crossRefs.forEach(e => {\n      calendarHtml += `<li>${escapeHtml(e.calendarRelevance.relatedEvent)}: ${escapeHtml(e.calendarRelevance.connection)}</li>`;\n    });\n    calendarHtml += '</ul>';\n  }\n} else {\n  calendarHtml = '<p>No calendar events today.</p>';\n}\n\n// Action items rows\nlet actionItemsRows = '';\nconst actionItems = a.consolidatedActionItems || [];\nif (actionItems.length > 0) {\n  actionItems.forEach(item => {\n    const cls = priorityClass(item.priority);\n    actionItemsRows += `<tr><td class=\"${cls}\">${escapeHtml(item.priority)}</td><td>${escapeHtml(item.task)}</td><td>${escapeHtml(item.sourceEmail || '')}</td><td>${escapeHtml(item.deadline || '—')}</td><td>${escapeHtml(item.effort || '—')}</td></tr>`;\n  });\n} else {\n  actionItemsRows = '<tr><td colspan=\"5\">No action items today.</td></tr>';\n}\n\n// Priority email cards\nlet priorityEmailCards = '';\nconst priorityEmails = (a.emailAnalyses || []).filter(e => e.importanceScore >= threshold).sort((a, b) => b.importanceScore - a.importanceScore);\nif (priorityEmails.length > 0) {\n  priorityEmails.forEach(e => {\n    const original = (data.emails || []).find(orig => orig.id === e.emailId) || {};\n    priorityEmailCards += `<div class=\"email-card\">`;\n    priorityEmailCards += `<h3><span class=\"score\">${e.importanceScore}</span> ${escapeHtml(original.subject || e.emailId)}</h3>`;\n    priorityEmailCards += `<div class=\"email-meta\">From: ${escapeHtml(original.from ? (original.from.name || original.from.email) : 'Unknown')} | ${escapeHtml(original.source || '')} | ${escapeHtml(e.category)}</div>`;\n    priorityEmailCards += `<p>${escapeHtml(e.summary)}</p>`;\n    if (e.importanceReason) priorityEmailCards += `<p><strong>Why it matters:</strong> ${escapeHtml(e.importanceReason)}</p>`;\n    if (e.suggestedResponse) priorityEmailCards += `<p><strong>Suggested response:</strong> ${escapeHtml(e.suggestedResponse)}</p>`;\n    priorityEmailCards += '</div>';\n  });\n} else {\n  priorityEmailCards = '<p>No priority emails today.</p>';\n}\n\n// Ongoing threads\nlet ongoingThreadsHtml = '';\nconst threads = a.ongoingThreads || [];\nif (threads.length > 0) {\n  ongoingThreadsHtml = '<ul>';\n  threads.forEach(t => {\n    ongoingThreadsHtml += `<li><strong>${escapeHtml(t.subject)}</strong> — ${escapeHtml(t.summary)}</li>`;\n  });\n  ongoingThreadsHtml += '</ul>';\n} else {\n  ongoingThreadsHtml = '<p>No ongoing threads.</p>';\n}\n\n// FYI section\nlet fyiHtml = '';\nconst fyiEmails = (a.emailAnalyses || []).filter(e => e.importanceScore < threshold);\nif (fyiEmails.length > 0) {\n  fyiHtml = '<ul>';\n  fyiEmails.forEach(e => {\n    const original = (data.emails || []).find(orig => orig.id === e.emailId) || {};\n    fyiHtml += `<li><strong>${escapeHtml(original.subject || e.emailId)}</strong>: ${escapeHtml(e.summary.split('.')[0])}.</li>`;\n  });\n  fyiHtml += '</ul>';\n} else {\n  fyiHtml = '<p>Nothing in the FYI bucket today.</p>';\n}\n\n// Inbox stats\nconst stats = a.inboxStats || {};\nlet inboxStatsHtml = `<ul>`;\ninboxStatsHtml += `<li>Total emails: ${stats.total || data.totalEmails}</li>`;\ninboxStatsHtml += `<li>By source: Gmail: ${data.gmailCount}, Outlook: ${data.outlookCount}</li>`;\nif (stats.byCategory) {\n  const catStr = Object.entries(stats.byCategory).map(([k, v]) => `${k}: ${v}`).join(', ');\n  inboxStatsHtml += `<li>By category: ${catStr}</li>`;\n}\nif (stats.comparisonToYesterday) inboxStatsHtml += `<li>vs. yesterday: ${escapeHtml(stats.comparisonToYesterday)}</li>`;\nif (stats.unreadRemaining !== undefined) inboxStatsHtml += `<li>Unread remaining: ${stats.unreadRemaining}</li>`;\ninboxStatsHtml += '</ul>';\n\nconst timestamp = new Date().toISOString();\n\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<style>\n  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; color: #1a1a1a; }\n  h1 { font-size: 22px; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }\n  h2 { font-size: 18px; color: #2563eb; margin-top: 24px; }\n  .summary { background: #f0f4ff; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 15px; line-height: 1.6; }\n  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }\n  th { background: #2563eb; color: white; padding: 8px 12px; text-align: left; }\n  td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; }\n  tr:nth-child(even) { background: #f9fafb; }\n  .priority-must { color: #dc2626; font-weight: bold; }\n  .priority-week { color: #d97706; }\n  .priority-later { color: #16a34a; }\n  .email-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 12px 0; }\n  .email-card h3 { margin: 0 0 8px 0; font-size: 16px; }\n  .email-meta { color: #6b7280; font-size: 13px; margin-bottom: 8px; }\n  .score { display: inline-block; background: #2563eb; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; font-size: 12px; font-weight: bold; }\n  .stats { background: #f9fafb; padding: 12px; border-radius: 8px; font-size: 14px; }\n  .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; }\n</style>\n</head>\n<body>\n  <h1>Daily Intelligence Briefing \\u2014 ${escapeHtml(data.dateFormatted)}</h1>\n  <div class=\"summary\">${escapeHtml(a.executiveSummary || 'No summary available.')}</div>\n  <h2>Today's Calendar + Email Cross-Reference</h2>\n  ${calendarHtml}\n  <h2>Action Items</h2>\n  <table>\n    <tr><th>Priority</th><th>Action</th><th>Source</th><th>Deadline</th><th>Effort</th></tr>\n    ${actionItemsRows}\n  </table>\n  <h2>Priority Emails</h2>\n  ${priorityEmailCards}\n  <h2>Ongoing Threads</h2>\n  ${ongoingThreadsHtml}\n  <h2>FYI / Read Later</h2>\n  ${fyiHtml}\n  <div class=\"stats\">\n    <h2>Inbox Stats</h2>\n    ${inboxStatsHtml}\n  </div>\n  <div class=\"footer\">\n    Generated by Morning Briefing Workflow | ${timestamp}\n  </div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...data,\n    emailHtml: html\n  }\n}];"
+      },
+      "id": "orch-build-email-024",
+      "name": "Build Email HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3460, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Action Items MD — rebuild action-items.md with new + previous unresolved items\nconst data = $json;\nconst a = data.analysis;\nconst currentDate = data.currentDate;\n\n// Parse previous action items from markdown\nconst previousRaw = data.previousActionItems || '';\nlet previousItems = [];\n\n// Extract tasks from previous markdown (lines matching: - [ ] or - [x])\nconst lines = previousRaw.split('\\n');\nlines.forEach(line => {\n  const uncheckedMatch = line.match(/^\\s*-\\s*\\[\\s*\\]\\s*(.+)$/);\n  const checkedMatch = line.match(/^\\s*-\\s*\\[x\\]\\s*~~?(.+?)~~?(?:\\s*—\\s*Completed\\s*(.+))?$/i);\n  if (uncheckedMatch) {\n    previousItems.push({\n      task: uncheckedMatch[1].trim(),\n      completed: false,\n      completedDate: null\n    });\n  } else if (checkedMatch) {\n    previousItems.push({\n      task: checkedMatch[1].trim(),\n      completed: true,\n      completedDate: checkedMatch[2] ? checkedMatch[2].trim() : currentDate\n    });\n  }\n});\n\n// New action items from today's analysis\nconst newItems = a.consolidatedActionItems || [];\n\n// Check which previous items are resolved by new emails (stale items with recommendations)\nconst staleTaskTexts = (a.staleItems || []).map(s => s.task.toLowerCase());\n\n// Mark previous uncompleted items as completed if they appear resolved\npreviousItems.forEach(item => {\n  if (!item.completed) {\n    // Check if any new email analysis suggests this is resolved\n    const taskLower = item.task.toLowerCase();\n    const isResolved = (a.emailAnalyses || []).some(e => {\n      const summary = (e.summary || '').toLowerCase();\n      const keywords = taskLower.split(/\\s+/).filter(w => w.length > 3);\n      return keywords.some(kw => summary.includes(kw)) && \n             (e.sentiment === 'positive' || summary.includes('completed') || summary.includes('done') || summary.includes('submitted'));\n    });\n    if (isResolved) {\n      item.completed = true;\n      item.completedDate = currentDate;\n    }\n  }\n});\n\n// Build the markdown file\nlet md = '# Active Action Items\\n\\n';\n\n// Must Do Today section\nmd += `## Must Do Today (${currentDate})\\n`;\nconst mustDoToday = newItems.filter(i => i.priority === 'must-do-today');\nconst prevMustDo = previousItems.filter(i => !i.completed && i.task.includes('must-do-today'));\nif (mustDoToday.length > 0) {\n  mustDoToday.forEach(item => {\n    const deadline = item.deadline ? ` — Deadline: ${item.deadline}` : '';\n    const source = item.sourceEmail ? ` — Source: ${item.sourceEmail}` : '';\n    md += `- [ ] ${item.task}${deadline}${source}\\n`;\n  });\n} else {\n  md += '_No must-do-today items._\\n';\n}\nmd += '\\n';\n\n// This Week section\nmd += '## This Week\\n';\nconst thisWeek = newItems.filter(i => i.priority === 'this-week');\nconst prevThisWeek = previousItems.filter(i => !i.completed && !i.task.includes('must-do-today'));\nif (thisWeek.length > 0 || prevThisWeek.length > 0) {\n  thisWeek.forEach(item => {\n    const deadline = item.deadline ? ` — Deadline: ${item.deadline}` : '';\n    const source = item.sourceEmail ? ` — Source: ${item.sourceEmail}` : '';\n    md += `- [ ] ${item.task}${deadline}${source} (added ${currentDate})\\n`;\n  });\n  // Carry forward previous unresolved this-week items\n  prevThisWeek.forEach(item => {\n    md += `- [ ] ${item.task}\\n`;\n  });\n} else {\n  md += '_No this-week items._\\n';\n}\nmd += '\\n';\n\n// When Possible section\nconst whenPossible = newItems.filter(i => i.priority === 'when-possible');\nif (whenPossible.length > 0) {\n  md += '## When Possible\\n';\n  whenPossible.forEach(item => {\n    const deadline = item.deadline ? ` — Deadline: ${item.deadline}` : '';\n    const source = item.sourceEmail ? ` — Source: ${item.sourceEmail}` : '';\n    md += `- [ ] ${item.task}${deadline}${source} (added ${currentDate})\\n`;\n  });\n  md += '\\n';\n}\n\n// Completed section (last 7 days)\nconst completedItems = previousItems.filter(i => i.completed);\nif (completedItems.length > 0) {\n  md += '## Completed (last 7 days)\\n';\n  // Filter out items completed more than 7 days ago\n  const sevenDaysAgo = new Date();\n  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\n  \n  completedItems.forEach(item => {\n    let keep = true;\n    if (item.completedDate) {\n      const completedDateObj = new Date(item.completedDate);\n      if (completedDateObj < sevenDaysAgo) keep = false;\n    }\n    if (keep) {\n      const dateStr = item.completedDate || currentDate;\n      md += `- [x] ~~${item.task}~~ — Completed ${dateStr}\\n`;\n    }\n  });\n  md += '\\n';\n}\n\nreturn [{\n  json: {\n    ...data,\n    actionItemsMd: md\n  }\n}];"
+      },
+      "id": "orch-build-actions-025",
+      "name": "Build Action Items MD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3680, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Ongoing Threads MD — rebuild ongoing-threads.md from AI output\nconst data = $json;\nconst a = data.analysis;\nconst currentDate = data.currentDate;\n\nconst threads = a.ongoingThreads || [];\n\nlet md = '# Ongoing Threads\\n\\n';\nmd += `_Last updated: ${currentDate}_\\n\\n`;\n\nif (threads.length > 0) {\n  // Active threads\n  md += '## Active Threads\\n\\n';\n  const sevenDaysAgo = new Date();\n  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\n  \n  const activeThreads = [];\n  const archivedThreads = [];\n  \n  threads.forEach(t => {\n    const lastActivityDate = t.lastActivity ? new Date(t.lastActivity) : new Date();\n    if (lastActivityDate < sevenDaysAgo) {\n      archivedThreads.push(t);\n    } else {\n      activeThreads.push(t);\n    }\n  });\n  \n  if (activeThreads.length > 0) {\n    activeThreads.forEach(t => {\n      md += `### ${t.subject}\\n`;\n      md += `- **Thread ID:** ${t.threadId}\\n`;\n      md += `- **Participants:** ${(t.participants || []).join(', ')}\\n`;\n      md += `- **Last activity:** ${t.lastActivity || 'Unknown'}\\n`;\n      md += `- **Summary:** ${t.summary}\\n\\n`;\n    });\n  } else {\n    md += '_No active threads._\\n\\n';\n  }\n  \n  // Archived threads (no activity > 7 days)\n  if (archivedThreads.length > 0) {\n    md += '## Archived Threads\\n\\n';\n    md += '_These threads have had no activity for 7+ days._\\n\\n';\n    archivedThreads.forEach(t => {\n      md += `- ~~${t.subject}~~ — Last activity: ${t.lastActivity} — ${t.summary}\\n`;\n    });\n    md += '\\n';\n  }\n} else {\n  md += '_No ongoing threads to track._\\n';\n}\n\nreturn [{\n  json: {\n    ...data,\n    ongoingThreadsMd: md\n  }\n}];"
+      },
+      "id": "orch-build-threads-026",
+      "name": "Build Ongoing Threads MD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3900, 200]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.digestPath }}",
+        "operation": "write",
+        "fileContent": "={{ $json.obsidianDigest }}",
+        "options": {}
+      },
+      "id": "orch-write-digest-027",
+      "name": "Write Digest",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [4120, 60]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.actionItemsPath }}",
+        "operation": "write",
+        "fileContent": "={{ $json.actionItemsMd }}",
+        "options": {}
+      },
+      "id": "orch-write-actions-028",
+      "name": "Write Action Items",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [4120, 220]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.ongoingThreadsPath }}",
+        "operation": "write",
+        "fileContent": "={{ $json.ongoingThreadsMd }}",
+        "options": {}
+      },
+      "id": "orch-write-threads-029",
+      "name": "Write Ongoing Threads",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [4120, 380]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $env.N8N_SLACK_CHANNEL || '#morning-briefing' }}",
+          "mode": "name"
+        },
+        "text": "={{ $('Build Slack Message').first().json.slackBlocksJson }}",
+        "otherOptions": {
+          "sendAsJSON": true
+        }
+      },
+      "id": "orch-slack-send-030",
+      "name": "Send Slack Digest",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [4340, 60],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "slack-cred-id",
+          "name": "Slack OAuth2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "sendTo": "aryanrheasingh@gmail.com",
+        "subject": "={{ 'Daily Briefing — ' + $('Build Obsidian Digest').first().json.dateFormatted + ' — ' + $('Build Obsidian Digest').first().json.urgentCount + ' urgent items' }}",
+        "emailType": "html",
+        "message": "={{ $('Build Email HTML').first().json.emailHtml }}",
+        "options": {}
+      },
+      "id": "orch-gmail-send-031",
+      "name": "Send Email Digest",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [4340, 220],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-cred-id",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $('Build Ongoing Threads MD').first().json.lastRunPath }}",
+        "operation": "write",
+        "fileContent": "={{ new Date().toISOString() }}",
+        "options": {}
+      },
+      "id": "orch-write-lastrun-032",
+      "name": "Update Last Run",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [4560, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// No Emails — build a simplified digest when there are no emails\nconst data = $json;\n\nconst simplifiedAnalysis = {\n  executiveSummary: `No new emails received since the last briefing. Your inbox is clear for ${data.currentDay}, ${data.dateFormatted}.`,\n  emailAnalyses: [],\n  consolidatedActionItems: [],\n  ongoingThreads: [],\n  staleItems: [],\n  inboxStats: {\n    total: 0,\n    bySource: { gmail: 0, outlook: 0 },\n    byCategory: {},\n    comparisonToYesterday: 'No emails today',\n    unreadRemaining: 0\n  }\n};\n\nreturn [{\n  json: {\n    ...data,\n    analysis: simplifiedAnalysis,\n    aiProvider: 'none (no emails)'\n  }\n}];"
+      },
+      "id": "orch-no-emails-033",
+      "name": "No Emails Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through context data for the sub-workflows\n// Fetch Obsidian Context needs currentDate and vaultPath\nconst dateContext = $('Setup Date Context').first().json;\n\nreturn [{\n  json: {\n    currentDate: dateContext.currentDate,\n    vaultPath: dateContext.vaultPath\n  }\n}];"
+      },
+      "id": "orch-prep-context-034",
+      "name": "Prep Context Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare inputs for the three parallel sub-workflow calls\n// Gmail and Outlook need lastRunTimestamp, Calendar needs currentDate\nconst contextResult = $('Fetch Obsidian Context').first().json;\nconst dateContext = $('Setup Date Context').first().json;\n\nconst lastRunTimestamp = contextResult.lastRunTimestamp || '';\n\n// If no last run timestamp, use 18 hours ago as fallback\nlet timestamp = lastRunTimestamp;\nif (!timestamp) {\n  const fallback = new Date();\n  fallback.setHours(fallback.getHours() - 18);\n  timestamp = fallback.toISOString();\n}\n\nreturn [{\n  json: {\n    lastRunTimestamp: timestamp,\n    currentDate: dateContext.currentDate\n  }\n}];"
+      },
+      "id": "orch-prep-parallel-035",
+      "name": "Prep Parallel Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 620]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Setup Date Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup Date Context": {
+      "main": [
+        [
+          {
+            "node": "Check Dedup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Dedup": {
+      "main": [
+        [
+          {
+            "node": "Already Ran Today?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Ran Today?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Prep Context Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Context Input": {
+      "main": [
+        [
+          {
+            "node": "Fetch Obsidian Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Obsidian Context": {
+      "main": [
+        [
+          {
+            "node": "Prep Parallel Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Parallel Inputs": {
+      "main": [
+        [
+          {
+            "node": "Fetch Gmail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Outlook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Gmail": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Outlook": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Calendar": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Data": {
+      "main": [
+        [
+          {
+            "node": "Has Any Emails?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Any Emails?": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Emails Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Emails Digest": {
+      "main": [
+        [
+          {
+            "node": "Build Obsidian Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Payload": {
+      "main": [
+        [
+          {
+            "node": "Claude API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API": {
+      "main": [
+        [
+          {
+            "node": "Claude Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Success?": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare OpenAI Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare OpenAI Fallback": {
+      "main": [
+        [
+          {
+            "node": "OpenAI API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI API": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Success?": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Gemini Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Gemini Fallback": {
+      "main": [
+        [
+          {
+            "node": "Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Gemini Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Success?": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Build Obsidian Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Obsidian Digest": {
+      "main": [
+        [
+          {
+            "node": "Build Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Build Email HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email HTML": {
+      "main": [
+        [
+          {
+            "node": "Build Action Items MD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Action Items MD": {
+      "main": [
+        [
+          {
+            "node": "Build Ongoing Threads MD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Ongoing Threads MD": {
+      "main": [
+        [
+          {
+            "node": "Write Digest",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Write Action Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Write Ongoing Threads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Digest": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Action Items": {
+      "main": [
+        [
+          {
+            "node": "Send Email Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Ongoing Threads": {
+      "main": [
+        [
+          {
+            "node": "Update Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Digest": {
+      "main": [
+        []
+      ]
+    },
+    "Send Email Digest": {
+      "main": [
+        []
+      ]
+    },
+    "Update Last Run": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "any",
+    "timezone": "America/New_York"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "morning-briefing"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-03-21T00:00:00.000Z",
+  "versionId": "1"
+}
