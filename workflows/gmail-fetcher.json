@@ -1,0 +1,147 @@
+{
+  "name": "Gmail Fetcher",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-1111-4000-8000-000000000001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 50,
+        "filters": {
+          "q": "={{ 'after:' + $json.lastRunTimestamp.split('T')[0].replace(/-/g, '/') + ' -from:me -in:drafts' }}"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000002",
+      "name": "Gmail - Fetch Emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [470, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-cred-id",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "check-emails",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000003",
+      "name": "Has Emails?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst normalized = [];\n\nfor (const item of items) {\n  const email = item.json;\n  \n  let body = email.text || email.snippet || '';\n  \n  if (!body && email.html) {\n    body = email.html.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  }\n  \n  const sigPatterns = [/\\n--\\s*\\n[\\s\\S]*$/, /\\nSent from [\\s\\S]*$/, /\\n_{3,}[\\s\\S]*$/, /\\nGet Outlook[\\s\\S]*$/];\n  for (const pattern of sigPatterns) {\n    body = body.replace(pattern, '');\n  }\n  \n  body = body.replace(/\\nOn .* wrote:[\\s\\S]*$/m, '');\n  body = body.split('\\n').filter(line => !line.startsWith('>')).join('\\n');\n  \n  if (body.length > 2000) {\n    body = body.substring(0, 2000) + '... [truncated]';\n  }\n  \n  const attachmentNames = [];\n  if (email.payload && email.payload.parts) {\n    for (const part of email.payload.parts) {\n      if (part.filename && part.filename.length > 0) {\n        attachmentNames.push(part.filename);\n      }\n    }\n  }\n  \n  if (attachmentNames.length > 0) {\n    body += '\\n[Attachments: ' + attachmentNames.join(', ') + ']';\n  }\n  \n  let bodyHtml = '';\n  if (email.html) {\n    bodyHtml = email.html.substring(0, 500);\n  }\n  \n  normalized.push({\n    json: {\n      id: email.id || email.messageId || '',\n      source: 'gmail',\n      from: {\n        name: email.from ? email.from.split('<')[0].trim().replace(/\"/g, '') : '',\n        email: email.from ? (email.from.match(/<(.+?)>/) || ['', email.from])[1] : ''\n      },\n      to: (email.to || '').split(',').map(t => ({\n        name: t.split('<')[0].trim().replace(/\"/g, ''),\n        email: (t.match(/<(.+?)>/) || ['', t.trim()])[1]\n      })),\n      subject: email.subject || '(no subject)',\n      body: body,\n      bodyHtml: bodyHtml,\n      date: email.date || new Date(parseInt(email.internalDate)).toISOString(),\n      labels: email.labelIds || [],\n      isRead: !(email.labelIds || []).includes('UNREAD'),\n      hasAttachments: attachmentNames.length > 0,\n      attachmentNames: attachmentNames,\n      threadId: email.threadId || '',\n      messageCount: 1\n    }\n  });\n}\n\nreturn normalized.length > 0 ? normalized : [{ json: { emails: [], count: 0 } }];"
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000004",
+      "name": "Normalize Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 200]
+    },
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-1111-4000-8000-000000000005",
+      "name": "No Emails",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [910, 450]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Fetch Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Fetch Emails": {
+      "main": [
+        [
+          {
+            "node": "Has Emails?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Emails?": {
+      "main": [
+        [
+          {
+            "node": "Normalize Emails",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "n8n-morning-briefing"
+  },
+  "tags": [
+    {
+      "name": "morning-briefing",
+      "id": "tag-morning-briefing"
+    },
+    {
+      "name": "sub-workflow",
+      "id": "tag-sub-workflow"
+    },
+    {
+      "name": "gmail",
+      "id": "tag-gmail"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}
