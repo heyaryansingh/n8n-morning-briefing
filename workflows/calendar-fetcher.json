@@ -1,0 +1,229 @@
+{
+  "name": "Calendar Fetcher",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "fb9dc3af-249f-4071-8843-5ebe3fbb2274",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const currentDate = $json.currentDate;\nconst timeMin = currentDate + 'T00:00:00-04:00';\nconst parts = currentDate.split('-');\nconst tomorrow = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2])+1);\nconst tomorrowStr = tomorrow.toISOString().split('T')[0];\nconst timeMax = tomorrowStr + 'T12:00:00-04:00';\nreturn [{ json: { timeMin, timeMax, currentDate } }];"
+      },
+      "id": "af86b9fa-e580-4586-8888-2e737f24d0f4",
+      "name": "Calculate Time Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "options": {
+          "timeMin": "={{ $json.timeMin }}",
+          "timeMax": "={{ $json.timeMax }}",
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "id": "18b0ad2c-9692-44e8-a9cf-4b8166b452d7",
+      "name": "Google Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.2,
+      "position": [460, 160],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "googleCalendarOAuth2",
+          "name": "Google Calendar OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nreturn items.map(item => {\n  const event = item.json;\n  const attendees = (event.attendees || []).map(a => a.email || a.displayName || '');\n  return {\n    json: {\n      id: event.id || '',\n      title: event.summary || event.subject || '(No title)',\n      startTime: event.start?.dateTime || event.start?.date || '',\n      endTime: event.end?.dateTime || event.end?.date || '',\n      location: event.location || null,\n      description: event.description || null,\n      source: 'google',\n      attendees: attendees\n    }\n  };\n});"
+      },
+      "id": "56744616-35ea-4410-a2d1-5e801962e3c8",
+      "name": "Normalize Google Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 160]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me/calendarview",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "startDateTime",
+              "value": "={{ $('Calculate Time Range').item.json.timeMin }}"
+            },
+            {
+              "name": "endDateTime",
+              "value": "={{ $('Calculate Time Range').item.json.timeMax }}"
+            }
+          ]
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "2fdb6d54-6fbd-47b0-beb1-be527cc189b1",
+      "name": "Outlook Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 440],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "microsoftOutlookOAuth2",
+          "name": "Microsoft Outlook OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst events = items[0]?.json?.value || items.map(i => i.json);\nreturn events.map(event => {\n  const attendees = (event.attendees || []).map(a => a.emailAddress?.address || a.emailAddress?.name || '');\n  return {\n    json: {\n      id: event.id || '',\n      title: event.subject || '(No title)',\n      startTime: event.start?.dateTime ? event.start.dateTime + 'Z' : '',\n      endTime: event.end?.dateTime ? event.end.dateTime + 'Z' : '',\n      location: event.location?.displayName || null,\n      description: event.bodyPreview || null,\n      source: 'outlook',\n      attendees: attendees\n    }\n  };\n});"
+      },
+      "id": "0137976d-ab24-477c-8896-48e78fb3d63a",
+      "name": "Normalize Outlook Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 440]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "78d39bd2-6d89-480e-817c-f93e16d6f0ab",
+      "name": "Merge Events",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst events = items.map(i => i.json);\nconst deduped = [];\nconst seen = new Set();\n\nfor (const event of events) {\n  const key = event.title.toLowerCase().trim();\n  const startMs = new Date(event.startTime).getTime();\n  let isDupe = false;\n\n  for (const existing of deduped) {\n    const existKey = existing.title.toLowerCase().trim();\n    const existMs = new Date(existing.startTime).getTime();\n    if (key === existKey && Math.abs(startMs - existMs) < 300000) {\n      isDupe = true;\n      break;\n    }\n  }\n\n  if (!isDupe) deduped.push(event);\n}\n\nreturn deduped.map(e => ({ json: e }));"
+      },
+      "id": "3dfedcd4-f3bf-4016-a61b-71ce53055c16",
+      "name": "Deduplicate Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Calculate Time Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Time Range": {
+      "main": [
+        [
+          {
+            "node": "Google Calendar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Outlook Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Normalize Google Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Google Events": {
+      "main": [
+        [
+          {
+            "node": "Merge Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outlook Calendar": {
+      "main": [
+        [
+          {
+            "node": "Normalize Outlook Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Outlook Events": {
+      "main": [
+        [
+          {
+            "node": "Merge Events",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Events": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York",
+    "saveManualExecutions": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "n8n-morning-briefing"
+  },
+  "tags": [
+    {
+      "name": "morning-briefing"
+    }
+  ]
+}
