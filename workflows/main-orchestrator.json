@@ -81,6 +81,7 @@
       "id": "orch-fetch-context-005",
       "name": "Fetch Obsidian Context",
       "type": "n8n-nodes-base.executeWorkflow",
+      "onError": "continueRegularOutput",
       "typeVersion": 1.2,
       "position": [880, 460]
     },
