@@ -95,33 +95,33 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FETCH-01 | Phase 1 | Pending |
-| FETCH-02 | Phase 1 | Pending |
-| FETCH-03 | Phase 1 | Pending |
-| FETCH-04 | Phase 1 | Pending |
-| FETCH-05 | Phase 1 | Pending |
-| FETCH-06 | Phase 1 | Pending |
-| CAL-01 | Phase 2 | Pending |
-| CAL-02 | Phase 2 | Pending |
-| CAL-03 | Phase 2 | Pending |
-| AI-01 | Phase 3 | Pending |
-| AI-02 | Phase 3 | Pending |
-| AI-03 | Phase 3 | Pending |
-| AI-04 | Phase 3 | Pending |
-| AI-05 | Phase 3 | Pending |
-| AI-06 | Phase 3 | Pending |
-| AI-07 | Phase 3 | Pending |
-| AI-08 | Phase 3 | Pending |
-| DEL-01 | Phase 4 | Pending |
-| DEL-02 | Phase 4 | Pending |
-| DEL-03 | Phase 4 | Pending |
-| DEL-04 | Phase 4 | Pending |
-| DEL-05 | Phase 4 | Pending |
-| DEL-06 | Phase 4 | Pending |
-| CONT-01 | Phase 5 | Pending |
-| CONT-02 | Phase 5 | Pending |
+| FETCH-01 | Phase 2 | Pending |
+| FETCH-02 | Phase 2 | Pending |
+| FETCH-03 | Phase 2 | Pending |
+| FETCH-04 | Phase 2 | Pending |
+| FETCH-05 | Phase 2 | Pending |
+| FETCH-06 | Phase 2 | Pending |
+| CAL-01 | Phase 3 | Pending |
+| CAL-02 | Phase 3 | Pending |
+| CAL-03 | Phase 3 | Pending |
+| CONT-01 | Phase 3 | Pending |
+| CONT-02 | Phase 3 | Pending |
+| CONT-04 | Phase 3 | Pending |
+| AI-01 | Phase 4 | Pending |
+| AI-02 | Phase 4 | Pending |
+| AI-03 | Phase 4 | Pending |
+| AI-04 | Phase 4 | Pending |
+| AI-05 | Phase 4 | Pending |
+| AI-06 | Phase 4 | Pending |
+| AI-07 | Phase 4 | Pending |
+| AI-08 | Phase 4 | Pending |
+| DEL-01 | Phase 5 | Pending |
+| DEL-02 | Phase 5 | Pending |
+| DEL-03 | Phase 5 | Pending |
+| DEL-04 | Phase 5 | Pending |
+| DEL-05 | Phase 5 | Pending |
+| DEL-06 | Phase 5 | Pending |
 | CONT-03 | Phase 5 | Pending |
-| CONT-04 | Phase 5 | Pending |
 | CONT-05 | Phase 5 | Pending |
 | CONT-06 | Phase 5 | Pending |
 | REL-01 | Phase 6 | Pending |
@@ -140,7 +140,14 @@
 - v1 requirements: 36 total
 - Mapped to phases: 36
 - Unmapped: 0
+- Phase 1 (Foundation): 0 requirements (infrastructure setup enabling all phases)
+- Phase 2 (Email Fetchers): 6 requirements
+- Phase 3 (Calendar and Context Readers): 6 requirements
+- Phase 4 (AI Analysis Orchestrator): 8 requirements
+- Phase 5 (Digest Builder and Delivery): 9 requirements
+- Phase 6 (Reliability and Scheduling): 9 requirements
+- Phase 7 (Monitoring and End-to-End Testing): 2 requirements
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap creation*
