@@ -7,7 +7,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 300]
+      "position": [
+        0,
+        300
+      ]
     },
     {
       "parameters": {
@@ -17,7 +20,10 @@
       "name": "Calculate Time Range",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 300]
+      "position": [
+        220,
+        300
+      ]
     },
     {
       "parameters": {
@@ -39,10 +45,12 @@
       "name": "Google Calendar",
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.2,
-      "position": [460, 160],
+      "position": [
+        460,
+        160
+      ],
       "credentials": {
         "googleCalendarOAuth2Api": {
-          "id": "googleCalendarOAuth2",
           "name": "Google Calendar OAuth2"
         }
       }
@@ -55,7 +63,10 @@
       "name": "Normalize Google Events",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [700, 160]
+      "position": [
+        700,
+        160
+      ]
     },
     {
       "parameters": {
@@ -88,10 +99,12 @@
       "name": "Outlook Calendar",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 440],
+      "position": [
+        460,
+        440
+      ],
       "credentials": {
         "oAuth2Api": {
-          "id": "microsoftOutlookOAuth2",
           "name": "Microsoft Outlook OAuth2"
         }
       }
@@ -104,7 +117,10 @@
       "name": "Normalize Outlook Events",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [700, 440]
+      "position": [
+        700,
+        440
+      ]
     },
     {
       "parameters": {
@@ -115,7 +131,10 @@
       "name": "Merge Events",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [940, 300]
+      "position": [
+        940,
+        300
+      ]
     },
     {
       "parameters": {
@@ -125,7 +144,10 @@
       "name": "Deduplicate Events",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1160, 300]
+      "position": [
+        1160,
+        300
+      ]
     }
   ],
   "connections": {

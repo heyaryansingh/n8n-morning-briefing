@@ -7,64 +7,78 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Calculate previous date and vault paths\nconst currentDate = $json.currentDate;\nconst vaultPath = $json.vaultPath || 'C:\\\\Users\\\\aryan\\\\OneDrive\\\\Documents\\\\Obsidian Vault';\nconst digestDir = vaultPath + '\\\\Email Digests';\n\n// Calculate previous date\nconst parts = currentDate.split('-');\nconst today = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));\nconst yesterday = new Date(today);\nyesterday.setDate(yesterday.getDate() - 1);\nconst previousDate = yesterday.toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    currentDate,\n    previousDate,\n    vaultPath,\n    digestDir,\n    actionItemsPath: digestDir + '\\\\action-items.md',\n    ongoingThreadsPath: digestDir + '\\\\ongoing-threads.md',\n    previousDigestPath: digestDir + '\\\\' + previousDate + '.md',\n    lastRunPath: digestDir + '\\\\.last-run.txt'\n  }\n}];"
+        "jsCode": "const currentDate = $json.currentDate;\nconst vaultPath = $json.vaultPath || '/data/obsidian-vault';\nconst digestDir = vaultPath + '/Email Digests';\nconst parts = currentDate.split('-');\nconst today = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));\nconst yesterday = new Date(today);\nyesterday.setDate(yesterday.getDate() - 1);\nconst previousDate = yesterday.toISOString().split('T')[0];\nreturn [{\n  json: {\n    currentDate, previousDate, vaultPath, digestDir,\n    actionItemsPath: digestDir + '/action-items.md',\n    ongoingThreadsPath: digestDir + '/ongoing-threads.md',\n    previousDigestPath: digestDir + '/' + previousDate + '.md',\n    lastRunPath: digestDir + '/.last-run.txt'\n  }\n}];"
       },
       "id": "ocr-calc-paths-002",
       "name": "Calculate Paths",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [470, 300]
+      "position": [
+        470,
+        300
+      ]
     },
     {
       "parameters": {
-        "filePath": "={{ $json.lastRunPath }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst filePath = $json.lastRunPath;\ntry {\n  if (fs.existsSync(filePath)) {\n    const data = fs.readFileSync(filePath, 'utf8');\n    return [{ json: { data } }];\n  }\n} catch (e) {}\nreturn [{ json: { data: '' } }];"
       },
       "id": "ocr-read-lastrun-003",
       "name": "Read Last Run",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [690, 150],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        690,
+        150
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "filePath": "={{ $('Calculate Paths').item.json.actionItemsPath }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst filePath = $('Calculate Paths').item.json.actionItemsPath;\ntry {\n  if (fs.existsSync(filePath)) {\n    const data = fs.readFileSync(filePath, 'utf8');\n    return [{ json: { data } }];\n  }\n} catch (e) {}\nreturn [{ json: { data: '' } }];"
       },
       "id": "ocr-read-actions-004",
       "name": "Read Action Items",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [690, 300],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        690,
+        300
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "filePath": "={{ $('Calculate Paths').item.json.ongoingThreadsPath }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst filePath = $('Calculate Paths').item.json.ongoingThreadsPath;\ntry {\n  if (fs.existsSync(filePath)) {\n    const data = fs.readFileSync(filePath, 'utf8');\n    return [{ json: { data } }];\n  }\n} catch (e) {}\nreturn [{ json: { data: '' } }];"
       },
       "id": "ocr-read-threads-005",
       "name": "Read Ongoing Threads",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [690, 450],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        690,
+        450
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "filePath": "={{ $('Calculate Paths').item.json.previousDigestPath }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst filePath = $('Calculate Paths').item.json.previousDigestPath;\ntry {\n  if (fs.existsSync(filePath)) {\n    const data = fs.readFileSync(filePath, 'utf8');\n    return [{ json: { data } }];\n  }\n} catch (e) {}\nreturn [{ json: { data: '' } }];"
       },
       "id": "ocr-read-prevdigest-006",
       "name": "Read Previous Digest",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [690, 600],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        690,
+        600
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -78,7 +92,10 @@
       "name": "Merge All Context",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [910, 300]
+      "position": [
+        910,
+        300
+      ]
     },
     {
       "parameters": {
@@ -88,7 +105,10 @@
       "name": "Parse All Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1130, 300]
+      "position": [
+        1130,
+        300
+      ]
     }
   ],
   "connections": {

@@ -16,28 +16,36 @@
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 300]
+      "position": [
+        0,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Setup Date Context\nconst now = new Date();\n\n// Format current date as YYYY-MM-DD in Eastern time\nconst eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));\nconst year = eastern.getFullYear();\nconst month = String(eastern.getMonth() + 1).padStart(2, '0');\nconst day = String(eastern.getDate()).padStart(2, '0');\nconst currentDate = `${year}-${month}-${day}`;\n\n// Human-readable date\nconst months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\nconst dateFormatted = `${months[eastern.getMonth()]} ${eastern.getDate()}, ${year}`;\n\n// Day of week\nconst days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];\nconst currentDay = days[eastern.getDay()];\nconst isWeekend = eastern.getDay() === 0 || eastern.getDay() === 6;\n\n// Previous date\nconst prev = new Date(eastern);\nprev.setDate(prev.getDate() - 1);\nconst prevYear = prev.getFullYear();\nconst prevMonth = String(prev.getMonth() + 1).padStart(2, '0');\nconst prevDay = String(prev.getDate()).padStart(2, '0');\nconst previousDate = `${prevYear}-${prevMonth}-${prevDay}`;\n\n// Vault paths\nconst vaultPath = 'C:\\\\Users\\\\aryan\\\\OneDrive\\\\Documents\\\\Obsidian Vault';\nconst digestDir = vaultPath + '\\\\Email Digests';\n\nreturn [{\n  json: {\n    currentDate,\n    dateFormatted,\n    currentDay,\n    isWeekend,\n    previousDate,\n    vaultPath,\n    digestDir,\n    digestPath: digestDir + '\\\\' + currentDate + '.md',\n    actionItemsPath: digestDir + '\\\\action-items.md',\n    ongoingThreadsPath: digestDir + '\\\\ongoing-threads.md',\n    lastRunPath: digestDir + '\\\\.last-run.txt'\n  }\n}];"
+        "jsCode": "// Setup Date Context\nconst now = new Date();\nconst eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));\nconst year = eastern.getFullYear();\nconst month = String(eastern.getMonth() + 1).padStart(2, '0');\nconst day = String(eastern.getDate()).padStart(2, '0');\nconst currentDate = `${year}-${month}-${day}`;\n\nconst months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\nconst dateFormatted = `${months[eastern.getMonth()]} ${eastern.getDate()}, ${year}`;\n\nconst days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];\nconst currentDay = days[eastern.getDay()];\nconst isWeekend = eastern.getDay() === 0 || eastern.getDay() === 6;\n\nconst prev = new Date(eastern);\nprev.setDate(prev.getDate() - 1);\nconst prevYear = prev.getFullYear();\nconst prevMonth = String(prev.getMonth() + 1).padStart(2, '0');\nconst prevDay = String(prev.getDate()).padStart(2, '0');\nconst previousDate = `${prevYear}-${prevMonth}-${prevDay}`;\n\nconst vaultPath = '/data/obsidian-vault';\nconst digestDir = vaultPath + '/Email Digests';\n\nreturn [{\n  json: {\n    currentDate,\n    dateFormatted,\n    currentDay,\n    isWeekend,\n    previousDate,\n    vaultPath,\n    digestDir,\n    digestPath: digestDir + '/' + currentDate + '.md',\n    actionItemsPath: digestDir + '/action-items.md',\n    ongoingThreadsPath: digestDir + '/ongoing-threads.md',\n    lastRunPath: digestDir + '/.last-run.txt'\n  }\n}];"
       },
       "id": "orch-setup-002",
       "name": "Setup Date Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 300]
+      "position": [
+        220,
+        300
+      ]
     },
     {
       "parameters": {
-        "filePath": "={{ $json.digestPath }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst digestPath = $json.digestPath;\ntry {\n  if (fs.existsSync(digestPath)) {\n    const content = fs.readFileSync(digestPath, 'utf8');\n    return [{ json: { data: content, exists: true } }];\n  }\n} catch (e) {}\nreturn [{ json: { data: null, exists: false } }];"
       },
       "id": "orch-check-dedup-003",
       "name": "Check Dedup",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [440, 300],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -65,78 +73,65 @@
       "name": "Already Ran Today?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [660, 300]
+      "position": [
+        660,
+        300
+      ]
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "={{ $env.N8N_OBSIDIAN_CONTEXT_WORKFLOW_ID || 'obsidian-context-reader' }}",
-          "mode": "id"
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
+        "jsCode": "const fs = require('fs');\nconst dateCtx = $('Setup Date Context').first().json;\nconst vaultPath = dateCtx.vaultPath;\nconst digestDir = dateCtx.digestDir;\nconst previousDate = dateCtx.previousDate;\n\nfunction readFile(p) { try { return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : ''; } catch(e) { return ''; } }\n\nconst lastRunRaw = readFile(digestDir + '/.last-run.txt');\nlet lastRunTimestamp = lastRunRaw.trim();\nif (!lastRunTimestamp || lastRunTimestamp.length < 10) {\n  const fb = new Date(Date.now() - 18*60*60*1000);\n  lastRunTimestamp = fb.toISOString();\n}\n\nconst actionItemsRaw = readFile(digestDir + '/action-items.md');\nconst prevDigestRaw = readFile(digestDir + '/' + previousDate + '.md');\nconst threadsRaw = readFile(digestDir + '/ongoing-threads.md');\n\nlet previousDigestSummary = '';\nconst sumMatch = prevDigestRaw.match(/## Executive Summary\\n\\n([\\s\\S]*?)\\n\\n---/);\nif (sumMatch) previousDigestSummary = sumMatch[1].trim();\n\nreturn [{ json: {\n  lastRunTimestamp,\n  actionItems: actionItemsRaw,\n  previousDigestSummary,\n  ongoingThreads: threadsRaw\n}}];"
       },
       "id": "orch-fetch-context-005",
       "name": "Fetch Obsidian Context",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "onError": "continueRegularOutput",
-      "typeVersion": 1.2,
-      "position": [880, 460]
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        460
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "={{ $env.N8N_GMAIL_FETCHER_WORKFLOW_ID || 'gmail-fetcher' }}",
-          "mode": "id"
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
+        "jsCode": "// Gmail fetch - returns empty until OAuth is configured via env vars\n// To enable: set GMAIL_ACCESS_TOKEN env var\nconst token = $env.GMAIL_ACCESS_TOKEN || '';\nif (!token) {\n  return [{ json: { emails: [], count: 0, error: 'GMAIL_ACCESS_TOKEN not set' } }];\n}\ntry {\n  const lastRun = $json.lastRunTimestamp || '';\n  const after = lastRun ? lastRun.split('T')[0].replace(/-/g, '/') : '';\n  const q = encodeURIComponent('after:' + after + ' -from:me -in:drafts');\n  const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=' + q, {\n    headers: { 'Authorization': 'Bearer ' + token }\n  });\n  const data = await resp.json();\n  return [{ json: { emails: data.messages || [], count: (data.messages || []).length } }];\n} catch(e) {\n  return [{ json: { emails: [], count: 0, error: e.message } }];\n}"
       },
       "id": "orch-fetch-gmail-006",
       "name": "Fetch Gmail",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [1100, 300],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "={{ $env.N8N_OUTLOOK_FETCHER_WORKFLOW_ID || 'outlook-fetcher' }}",
-          "mode": "id"
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
+        "jsCode": "// Outlook fetch - returns empty until OAuth is configured\nconst token = $env.OUTLOOK_ACCESS_TOKEN || '';\nif (!token) {\n  return [{ json: { emails: [], count: 0, error: 'OUTLOOK_ACCESS_TOKEN not set' } }];\n}\ntry {\n  const lastRun = $json.lastRunTimestamp || '';\n  const filter = lastRun ? \"&$filter=receivedDateTime ge \" + lastRun : \"\";\n  const resp = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=50' + filter, {\n    headers: { 'Authorization': 'Bearer ' + token }\n  });\n  const data = await resp.json();\n  return [{ json: { emails: data.value || [], count: (data.value || []).length } }];\n} catch(e) {\n  return [{ json: { emails: [], count: 0, error: e.message } }];\n}"
       },
       "id": "orch-fetch-outlook-007",
       "name": "Fetch Outlook",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [1100, 500],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        500
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "={{ $env.N8N_CALENDAR_FETCHER_WORKFLOW_ID || 'calendar-fetcher' }}",
-          "mode": "id"
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
+        "jsCode": "// Calendar fetch - returns empty until OAuth is configured\nreturn [{ json: { events: [], count: 0, note: 'Calendar fetch requires OAuth - configure tokens to enable' } }];"
       },
       "id": "orch-fetch-calendar-008",
       "name": "Fetch Calendar",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [1100, 700],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        700
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -147,7 +142,10 @@
       "name": "Merge All Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 500]
+      "position": [
+        1320,
+        500
+      ]
     },
     {
       "parameters": {
@@ -174,7 +172,10 @@
       "name": "Has Any Emails?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1540, 500]
+      "position": [
+        1540,
+        500
+      ]
     },
     {
       "parameters": {
@@ -184,50 +185,23 @@
       "name": "Prepare AI Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, 400]
+      "position": [
+        1760,
+        400
+      ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://api.anthropic.com/v1/messages",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "anthropic-version",
-              "value": "2023-06-01"
-            },
-            {
-              "name": "content-type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true
-            }
-          },
-          "timeout": 120000
-        }
+        "jsCode": "const apiKey = $env.ANTHROPIC_API_KEY || '';\nif (!apiKey) {\n  return [{ json: { statusCode: 401, body: { error: 'ANTHROPIC_API_KEY not set' } } }];\n}\ntry {\n  const resp = await fetch('https://api.anthropic.com/v1/messages', {\n    method: 'POST',\n    headers: {\n      'x-api-key': apiKey,\n      'anthropic-version': '2023-06-01',\n      'content-type': 'application/json'\n    },\n    body: JSON.stringify($json.requestBody)\n  });\n  const body = await resp.json();\n  return [{ json: { statusCode: resp.status, body } }];\n} catch(e) {\n  return [{ json: { statusCode: 500, body: { error: e.message } } }];\n}"
       },
       "id": "orch-claude-api-012",
       "name": "Claude API",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1980, 400],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "anthropic-api-key",
-          "name": "Anthropic API Key"
-        }
-      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        400
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -255,7 +229,10 @@
       "name": "Claude Success?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2200, 400]
+      "position": [
+        2200,
+        400
+      ]
     },
     {
       "parameters": {
@@ -265,46 +242,23 @@
       "name": "Prepare OpenAI Fallback",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2420, 600]
+      "position": [
+        2420,
+        600
+      ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "content-type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.openAIBody) }}",
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true
-            }
-          },
-          "timeout": 120000
-        }
+        "jsCode": "const apiKey = $env.OPENAI_API_KEY || '';\nif (!apiKey) {\n  return [{ json: { statusCode: 401, body: { error: 'OPENAI_API_KEY not set' } } }];\n}\ntry {\n  const resp = await fetch('https://api.openai.com/v1/chat/completions', {\n    method: 'POST',\n    headers: {\n      'Authorization': 'Bearer ' + apiKey,\n      'content-type': 'application/json'\n    },\n    body: JSON.stringify($json.openAIBody)\n  });\n  const body = await resp.json();\n  return [{ json: { statusCode: resp.status, body } }];\n} catch(e) {\n  return [{ json: { statusCode: 500, body: { error: e.message } } }];\n}"
       },
       "id": "orch-openai-api-015",
       "name": "OpenAI API",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2640, 600],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "openai-api-key",
-          "name": "OpenAI API Key"
-        }
-      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        600
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -332,7 +286,10 @@
       "name": "OpenAI Success?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2860, 600]
+      "position": [
+        2860,
+        600
+      ]
     },
     {
       "parameters": {
@@ -342,38 +299,23 @@
       "name": "Prepare Gemini Fallback",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3080, 800]
+      "position": [
+        3080,
+        800
+      ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $json.geminiUrl }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "content-type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.geminiBody) }}",
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true
-            }
-          },
-          "timeout": 120000
-        }
+        "jsCode": "const apiKey = $env.GEMINI_API_KEY || '';\nif (!apiKey) {\n  return [{ json: { statusCode: 401, body: { error: 'GEMINI_API_KEY not set' } } }];\n}\ntry {\n  const url = $json.geminiUrl || ('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey);\n  const resp = await fetch(url, {\n    method: 'POST',\n    headers: { 'content-type': 'application/json' },\n    body: JSON.stringify($json.geminiBody)\n  });\n  const body = await resp.json();\n  return [{ json: { statusCode: resp.status, body } }];\n} catch(e) {\n  return [{ json: { statusCode: 500, body: { error: e.message } } }];\n}"
       },
       "id": "orch-gemini-api-018",
       "name": "Gemini API",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [3300, 800],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3300,
+        800
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -401,27 +343,24 @@
       "name": "Gemini Success?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [3520, 800]
+      "position": [
+        3520,
+        800
+      ]
     },
     {
       "parameters": {
-        "channel": "={{ $env.N8N_SLACK_CHANNEL || '#morning-briefing' }}",
-        "text": "All AI providers failed for the morning briefing. Manual review required.",
-        "otherOptions": {
-          "includeLinkToWorkflow": true
-        }
+        "jsCode": "const slackToken = $env.SLACK_BOT_TOKEN || '';\nconst channel = $env.SLACK_CHANNEL || '#morning-briefing';\nif (!slackToken) {\n  console.log('SLACK_BOT_TOKEN not set - skipping failure alert');\n  return [{ json: { ok: false, error: 'SLACK_BOT_TOKEN not set' } }];\n}\ntry {\n  const resp = await fetch('https://slack.com/api/chat.postMessage', {\n    method: 'POST',\n    headers: { 'Authorization': 'Bearer ' + slackToken, 'content-type': 'application/json' },\n    body: JSON.stringify({ channel, text: 'All AI providers failed for the morning briefing. Manual review required.' })\n  });\n  return [{ json: await resp.json() }];\n} catch(e) {\n  return [{ json: { ok: false, error: e.message } }];\n}"
       },
       "id": "orch-slack-failure-020",
       "name": "Send Failure Alert",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.2,
-      "position": [3740, 1000],
-      "credentials": {
-        "slackOAuth2Api": {
-          "id": "slack-cred-id",
-          "name": "Slack OAuth2"
-        }
-      }
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        1000
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -431,7 +370,10 @@
       "name": "Parse AI Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2800, 200]
+      "position": [
+        2800,
+        200
+      ]
     },
     {
       "parameters": {
@@ -441,7 +383,10 @@
       "name": "Build Obsidian Digest",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3020, 200]
+      "position": [
+        3020,
+        200
+      ]
     },
     {
       "parameters": {
@@ -451,7 +396,10 @@
       "name": "Build Slack Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3240, 200]
+      "position": [
+        3240,
+        200
+      ]
     },
     {
       "parameters": {
@@ -461,7 +409,10 @@
       "name": "Build Email HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3460, 200]
+      "position": [
+        3460,
+        200
+      ]
     },
     {
       "parameters": {
@@ -471,7 +422,10 @@
       "name": "Build Action Items MD",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3680, 200]
+      "position": [
+        3680,
+        200
+      ]
     },
     {
       "parameters": {
@@ -481,106 +435,94 @@
       "name": "Build Ongoing Threads MD",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3900, 200]
+      "position": [
+        3900,
+        200
+      ]
     },
     {
       "parameters": {
-        "filePath": "={{ $json.digestPath }}",
-        "operation": "write",
-        "fileContent": "={{ $json.obsidianDigest }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst digestPath = $json.digestPath;\nconst dir = path.dirname(digestPath);\nif (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });\nfs.writeFileSync(digestPath, $json.obsidianDigest, 'utf8');\nreturn [$input.first()];"
       },
       "id": "orch-write-digest-027",
       "name": "Write Digest",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [4120, 60]
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4120,
+        60
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "filePath": "={{ $json.actionItemsPath }}",
-        "operation": "write",
-        "fileContent": "={{ $json.actionItemsMd }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst filePath = $json.actionItemsPath;\nconst dir = path.dirname(filePath);\nif (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });\nfs.writeFileSync(filePath, $json.actionItemsMd, 'utf8');\nreturn [$input.first()];"
       },
       "id": "orch-write-actions-028",
       "name": "Write Action Items",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [4120, 220]
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4120,
+        220
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "filePath": "={{ $json.ongoingThreadsPath }}",
-        "operation": "write",
-        "fileContent": "={{ $json.ongoingThreadsMd }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst filePath = $json.ongoingThreadsPath;\nconst dir = path.dirname(filePath);\nif (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });\nfs.writeFileSync(filePath, $json.ongoingThreadsMd, 'utf8');\nreturn [$input.first()];"
       },
       "id": "orch-write-threads-029",
       "name": "Write Ongoing Threads",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [4120, 380]
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4120,
+        380
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "={{ $env.N8N_SLACK_CHANNEL || '#morning-briefing' }}",
-          "mode": "name"
-        },
-        "text": "={{ $('Build Slack Message').first().json.slackBlocksJson }}",
-        "otherOptions": {
-          "sendAsJSON": true
-        }
+        "jsCode": "const slackToken = $env.SLACK_BOT_TOKEN || '';\nconst channel = $env.SLACK_CHANNEL || '#morning-briefing';\nif (!slackToken) {\n  console.log('SLACK_BOT_TOKEN not set - skipping Slack digest');\n  return [{ json: { ok: false, error: 'SLACK_BOT_TOKEN not set' } }];\n}\ntry {\n  const blocks = $('Build Slack Message').first().json.slackBlocks;\n  const resp = await fetch('https://slack.com/api/chat.postMessage', {\n    method: 'POST',\n    headers: { 'Authorization': 'Bearer ' + slackToken, 'content-type': 'application/json' },\n    body: JSON.stringify({ channel, blocks, text: 'Daily Briefing' })\n  });\n  return [{ json: await resp.json() }];\n} catch(e) {\n  return [{ json: { ok: false, error: e.message } }];\n}"
       },
       "id": "orch-slack-send-030",
       "name": "Send Slack Digest",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.2,
-      "position": [4340, 60],
-      "credentials": {
-        "slackOAuth2Api": {
-          "id": "slack-cred-id",
-          "name": "Slack OAuth2"
-        }
-      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4340,
+        60
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "sendTo": "aryanrheasingh@gmail.com",
-        "subject": "={{ 'Daily Briefing — ' + $('Build Obsidian Digest').first().json.dateFormatted + ' — ' + $('Build Obsidian Digest').first().json.urgentCount + ' urgent items' }}",
-        "emailType": "html",
-        "message": "={{ $('Build Email HTML').first().json.emailHtml }}",
-        "options": {}
+        "jsCode": "const gmailToken = $env.GMAIL_ACCESS_TOKEN || '';\nif (!gmailToken) {\n  console.log('GMAIL_ACCESS_TOKEN not set - skipping email digest');\n  return [{ json: { ok: false, error: 'GMAIL_ACCESS_TOKEN not set' } }];\n}\ntry {\n  const html = $('Build Email HTML').first().json.emailHtml;\n  const obsData = $('Build Obsidian Digest').first().json;\n  const subject = 'Daily Briefing — ' + obsData.dateFormatted + ' — ' + obsData.urgentCount + ' urgent items';\n  const to = 'aryanrheasingh@gmail.com';\n  \n  const raw = btoa(\n    'To: ' + to + '\\r\\n' +\n    'Subject: ' + subject + '\\r\\n' +\n    'Content-Type: text/html; charset=utf-8\\r\\n\\r\\n' +\n    html\n  ).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');\n  \n  const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {\n    method: 'POST',\n    headers: { 'Authorization': 'Bearer ' + gmailToken, 'content-type': 'application/json' },\n    body: JSON.stringify({ raw })\n  });\n  return [{ json: await resp.json() }];\n} catch(e) {\n  return [{ json: { ok: false, error: e.message } }];\n}"
       },
       "id": "orch-gmail-send-031",
       "name": "Send Email Digest",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [4340, 220],
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "gmail-cred-id",
-          "name": "Gmail OAuth2"
-        }
-      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4340,
+        220
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "filePath": "={{ $('Build Ongoing Threads MD').first().json.lastRunPath }}",
-        "operation": "write",
-        "fileContent": "={{ new Date().toISOString() }}",
-        "options": {}
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst data = $('Build Ongoing Threads MD').first().json;\nconst filePath = data.lastRunPath;\nconst dir = path.dirname(filePath);\nif (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });\nfs.writeFileSync(filePath, new Date().toISOString(), 'utf8');\nreturn [$input.first()];"
       },
       "id": "orch-write-lastrun-032",
       "name": "Update Last Run",
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
-      "position": [4560, 220]
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4560,
+        220
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -590,27 +532,32 @@
       "name": "No Emails Digest",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, 700]
+      "position": [
+        1760,
+        700
+      ]
     },
     {
-      "parameters": {
-        "jsCode": "// Pass through context data for the sub-workflows\n// Fetch Obsidian Context needs currentDate and vaultPath\nconst dateContext = $('Setup Date Context').first().json;\n\nreturn [{\n  json: {\n    currentDate: dateContext.currentDate,\n    vaultPath: dateContext.vaultPath\n  }\n}];"
-      },
-      "id": "orch-prep-context-034",
-      "name": "Prep Context Input",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [880, 300]
+      "parameters": {},
+      "id": "orch-manual-trigger-000",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        500
+      ]
     },
     {
-      "parameters": {
-        "jsCode": "// Prepare inputs for the three parallel sub-workflow calls\n// Gmail and Outlook need lastRunTimestamp, Calendar needs currentDate\nconst contextResult = $('Fetch Obsidian Context').first().json;\nconst dateContext = $('Setup Date Context').first().json;\n\nconst lastRunTimestamp = contextResult.lastRunTimestamp || '';\n\n// If no last run timestamp, use 18 hours ago as fallback\nlet timestamp = lastRunTimestamp;\nif (!timestamp) {\n  const fallback = new Date();\n  fallback.setHours(fallback.getHours() - 18);\n  timestamp = fallback.toISOString();\n}\n\nreturn [{\n  json: {\n    lastRunTimestamp: timestamp,\n    currentDate: dateContext.currentDate\n  }\n}];"
-      },
-      "id": "orch-prep-parallel-035",
-      "name": "Prep Parallel Inputs",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [880, 620]
+      "parameters": {},
+      "id": "orch-manual-trigger-000",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        500
+      ]
     }
   ],
   "connections": {
@@ -652,17 +599,6 @@
         [],
         [
           {
-            "node": "Prep Context Input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prep Context Input": {
-      "main": [
-        [
-          {
             "node": "Fetch Obsidian Context",
             "type": "main",
             "index": 0
@@ -671,17 +607,6 @@
       ]
     },
     "Fetch Obsidian Context": {
-      "main": [
-        [
-          {
-            "node": "Prep Parallel Inputs",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prep Parallel Inputs": {
       "main": [
         [
           {
@@ -1018,6 +943,17 @@
       "main": [
         []
       ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Setup Date Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -1032,7 +968,7 @@
       "name": "morning-briefing"
     }
   ],
-  "triggerCount": 1,
+  "triggerCount": 2,
   "updatedAt": "2026-03-21T00:00:00.000Z",
   "versionId": "1"
 }

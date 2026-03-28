@@ -7,7 +7,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
@@ -23,10 +26,12 @@
       "name": "Gmail - Fetch Emails",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [470, 300],
+      "position": [
+        470,
+        300
+      ],
       "credentials": {
         "gmailOAuth2": {
-          "id": "gmail-cred-id",
           "name": "Gmail OAuth2"
         }
       }
@@ -55,7 +60,10 @@
       "name": "Has Emails?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [690, 300]
+      "position": [
+        690,
+        300
+      ]
     },
     {
       "parameters": {
@@ -65,7 +73,10 @@
       "name": "Normalize Emails",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [910, 200]
+      "position": [
+        910,
+        200
+      ]
     },
     {
       "parameters": {},
@@ -73,7 +84,10 @@
       "name": "No Emails",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [910, 450]
+      "position": [
+        910,
+        450
+      ]
     }
   ],
   "connections": {

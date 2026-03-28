@@ -7,7 +7,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 300]
+      "position": [
+        0,
+        300
+      ]
     },
     {
       "parameters": {
@@ -25,10 +28,12 @@
       "name": "Microsoft Outlook",
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
-      "position": [260, 300],
+      "position": [
+        260,
+        300
+      ],
       "credentials": {
         "microsoftOutlookOAuth2Api": {
-          "id": "microsoftOutlookOAuth2",
           "name": "Microsoft Outlook OAuth2"
         }
       }
@@ -60,17 +65,23 @@
       "name": "Has Emails?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [500, 300]
+      "position": [
+        500,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst normalized = [];\n\nfor (const item of items) {\n  const email = item.json;\n  \n  if (email.from && email.from.emailAddress && \n      email.from.emailAddress.address === 'asing168@jh.edu') {\n    continue;\n  }\n  \n  let body = '';\n  if (email.body) {\n    if (email.body.contentType === 'html' || email.body.contentType === 'HTML') {\n      body = email.body.content.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n    } else {\n      body = email.body.content || '';\n    }\n  } else if (email.bodyPreview) {\n    body = email.bodyPreview;\n  }\n  \n  const sigPatterns = [/\\n--\\s*\\n[\\s\\S]*$/, /\\nSent from [\\s\\S]*$/, /\\n_{3,}[\\s\\S]*$/, /\\nGet Outlook[\\s\\S]*$/];\n  for (const pattern of sigPatterns) {\n    body = body.replace(pattern, '');\n  }\n  \n  body = body.replace(/\\nOn .* wrote:[\\s\\S]*$/m, '');\n  body = body.split('\\n').filter(line => !line.startsWith('>')).join('\\n');\n  \n  if (body.length > 2000) {\n    body = body.substring(0, 2000) + '... [truncated]';\n  }\n  \n  const attachmentNames = [];\n  if (email.hasAttachments && email.attachments) {\n    for (const att of email.attachments) {\n      if (att.name) attachmentNames.push(att.name);\n    }\n  }\n  if (attachmentNames.length > 0) {\n    body += '\\n[Attachments: ' + attachmentNames.join(', ') + ']';\n  }\n  \n  let bodyHtml = '';\n  if (email.body && (email.body.contentType === 'html' || email.body.contentType === 'HTML')) {\n    bodyHtml = email.body.content.substring(0, 500);\n  }\n  \n  normalized.push({\n    json: {\n      id: email.id || '',\n      source: 'outlook',\n      from: {\n        name: email.from?.emailAddress?.name || '',\n        email: email.from?.emailAddress?.address || ''\n      },\n      to: (email.toRecipients || []).map(r => ({\n        name: r.emailAddress?.name || '',\n        email: r.emailAddress?.address || ''\n      })),\n      subject: email.subject || '(no subject)',\n      body: body,\n      bodyHtml: bodyHtml,\n      date: email.receivedDateTime || '',\n      labels: email.categories || [],\n      isRead: email.isRead || false,\n      hasAttachments: attachmentNames.length > 0,\n      attachmentNames: attachmentNames,\n      threadId: email.conversationId || '',\n      messageCount: 1\n    }\n  });\n}\n\nreturn normalized.length > 0 ? normalized : [{ json: { emails: [], count: 0 } }];"
+        "jsCode": "const items = $input.all();\nconst normalized = [];\n\nfor (const item of items) {\n  const email = item.json;\n  \n  if (email.from && email.from.emailAddress && \n      email.from.emailAddress.address === 'asing168@gmail.com') {\n    continue;\n  }\n  \n  let body = '';\n  if (email.body) {\n    if (email.body.contentType === 'html' || email.body.contentType === 'HTML') {\n      body = email.body.content.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n    } else {\n      body = email.body.content || '';\n    }\n  } else if (email.bodyPreview) {\n    body = email.bodyPreview;\n  }\n  \n  const sigPatterns = [/\\n--\\s*\\n[\\s\\S]*$/, /\\nSent from [\\s\\S]*$/, /\\n_{3,}[\\s\\S]*$/, /\\nGet Outlook[\\s\\S]*$/];\n  for (const pattern of sigPatterns) {\n    body = body.replace(pattern, '');\n  }\n  \n  body = body.replace(/\\nOn .* wrote:[\\s\\S]*$/m, '');\n  body = body.split('\\n').filter(line => !line.startsWith('>')).join('\\n');\n  \n  if (body.length > 2000) {\n    body = body.substring(0, 2000) + '... [truncated]';\n  }\n  \n  const attachmentNames = [];\n  if (email.hasAttachments && email.attachments) {\n    for (const att of email.attachments) {\n      if (att.name) attachmentNames.push(att.name);\n    }\n  }\n  if (attachmentNames.length > 0) {\n    body += '\\n[Attachments: ' + attachmentNames.join(', ') + ']';\n  }\n  \n  let bodyHtml = '';\n  if (email.body && (email.body.contentType === 'html' || email.body.contentType === 'HTML')) {\n    bodyHtml = email.body.content.substring(0, 500);\n  }\n  \n  normalized.push({\n    json: {\n      id: email.id || '',\n      source: 'outlook',\n      from: {\n        name: email.from?.emailAddress?.name || '',\n        email: email.from?.emailAddress?.address || ''\n      },\n      to: (email.toRecipients || []).map(r => ({\n        name: r.emailAddress?.name || '',\n        email: r.emailAddress?.address || ''\n      })),\n      subject: email.subject || '(no subject)',\n      body: body,\n      bodyHtml: bodyHtml,\n      date: email.receivedDateTime || '',\n      labels: email.categories || [],\n      isRead: email.isRead || false,\n      hasAttachments: attachmentNames.length > 0,\n      attachmentNames: attachmentNames,\n      threadId: email.conversationId || '',\n      messageCount: 1\n    }\n  });\n}\n\nreturn normalized.length > 0 ? normalized : [{ json: { emails: [], count: 0 } }];"
       },
       "id": "f7b0d4e6-1c5a-4d9b-e2f4-6a8b0c3d5e7f",
       "name": "Normalize Emails",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [760, 200]
+      "position": [
+        760,
+        200
+      ]
     },
     {
       "parameters": {},
@@ -78,7 +89,10 @@
       "name": "No Emails",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [760, 420]
+      "position": [
+        760,
+        420
+      ]
     }
   ],
   "connections": {
