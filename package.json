@@ -1,0 +1,11 @@
+{
+  "name": "n8n-morning-briefing",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Portable n8n workflows for generating a morning briefing from email, calendar, and Obsidian context.",
+  "scripts": {
+    "validate": "node scripts/validate-workflows.js",
+    "test": "node scripts/validate-workflows.js"
+  }
+}
+
