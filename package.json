@@ -3,9 +3,27 @@
   "private": true,
   "version": "0.1.0",
   "description": "Portable n8n workflows for generating a morning briefing from email, calendar, and Obsidian context.",
+  "keywords": [
+    "n8n",
+    "workflow",
+    "automation",
+    "morning-briefing",
+    "email",
+    "calendar",
+    "obsidian"
+  ],
+  "license": "MIT",
+  "author": "heyaryansingh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heyaryansingh/n8n-morning-briefing.git"
+  },
   "scripts": {
     "validate": "node scripts/validate-workflows.js",
     "test": "node scripts/validate-workflows.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
 
