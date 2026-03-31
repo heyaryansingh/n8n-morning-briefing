@@ -1,3 +1,13 @@
+#!/usr/bin/env node
+
+/**
+ * @fileoverview Updates Execute Workflow nodes in the main orchestrator
+ * to use name-based workflow lookups instead of hardcoded IDs.
+ * @module fix-workflow-refs
+ */
+
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 
@@ -5,7 +15,10 @@ const wfDir = path.join(__dirname, 'workflows');
 const orchPath = path.join(wfDir, 'main-orchestrator.json');
 const orch = JSON.parse(fs.readFileSync(orchPath, 'utf8'));
 
-// Map of Execute Workflow node names to the workflow names they should call
+/**
+ * Mapping of Execute Workflow node names to the target workflow names.
+ * @type {Object.<string, string>}
+ */
 const workflowMappings = {
   "Fetch Obsidian Context": "Obsidian Context Reader",
   "Fetch Gmail": "Gmail Fetcher",
