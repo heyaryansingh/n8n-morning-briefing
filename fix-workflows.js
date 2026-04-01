@@ -1,13 +1,37 @@
+/**
+ * @fileoverview n8n Workflow Node Replacement Script
+ * @module fix-workflows
+ *
+ * This script replaces credential-requiring n8n nodes with Code nodes that use
+ * native HTTP fetch. This eliminates design-time credential validation errors
+ * and allows the workflow to run with environment variables instead.
+ *
+ * @example
+ * ```bash
+ * node fix-workflows.js
+ * ```
+ */
+
 const fs = require('fs');
 const path = require('path');
 
+/** @type {string} Path to the workflows directory */
 const wfDir = path.join(__dirname, 'workflows');
+
+/** @type {string} Path to the main orchestrator workflow JSON file */
 const orchPath = path.join(wfDir, 'main-orchestrator.json');
+
+/** @type {Object} Parsed workflow configuration object */
 const j = JSON.parse(fs.readFileSync(orchPath, 'utf8'));
 
-// Replace ALL credential-requiring nodes with Code nodes that use HTTP fetch
-// This eliminates ALL design-time validation errors
-
+/**
+ * Replaces a node in the workflow by name with a new node configuration.
+ * Logs the replacement status to the console.
+ *
+ * @param {string} name - The name of the node to replace
+ * @param {Object} newNode - The new node configuration object
+ * @returns {void}
+ */
 function replaceNode(name, newNode) {
   const idx = j.nodes.findIndex(n => n.name === name);
   if (idx >= 0) {
