@@ -13,7 +13,18 @@ const path = require('path');
 
 const wfDir = path.join(__dirname, 'workflows');
 const orchPath = path.join(wfDir, 'main-orchestrator.json');
-const orch = JSON.parse(fs.readFileSync(orchPath, 'utf8'));
+
+let orch;
+try {
+  const data = fs.readFileSync(orchPath, 'utf8');
+  orch = JSON.parse(data);
+  if (!orch.nodes || !Array.isArray(orch.nodes)) {
+    throw new Error('Invalid workflow: missing nodes array');
+  }
+} catch (err) {
+  console.error(`Failed to read/parse workflow: ${err.message}`);
+  process.exit(1);
+}
 
 /**
  * Mapping of Execute Workflow node names to the target workflow names.
@@ -38,5 +49,10 @@ for (const node of orch.nodes) {
   }
 }
 
-fs.writeFileSync(orchPath, JSON.stringify(orch, null, 2) + '\n', 'utf8');
-console.log('\nWorkflow references updated to use name-based lookup.');
+try {
+  fs.writeFileSync(orchPath, JSON.stringify(orch, null, 2) + '\n', 'utf8');
+  console.log('\nWorkflow references updated to use name-based lookup.');
+} catch (err) {
+  console.error(`Failed to write workflow: ${err.message}`);
+  process.exit(1);
+}
